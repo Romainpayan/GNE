@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Good Night Elisa – a black-and-white isometric horror loop. Prototype: the bedroom.">
+<meta name="theme-color" content="#000000">
+<title>Elisa’s Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Public+Sans:wght@400;500;600&family=Cinzel:wght@900&family=Vampiro+One&display=swap" rel="stylesheet">
+<style>
+/* Plein écran : la scène 3D, puis des calques HTML (grain, vignette, pensées, fins). Thème unique sombre. */
+:root{--bg:#060606;--ink:#ebebeb;--muted:#8f8f8f;--line:#2b2b2b;--red:#a3a3a3;
+  --f-display:"IM Fell English",Georgia,serif;--f-body:"Public Sans",system-ui,sans-serif;color-scheme:dark}
+html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden}
+body{font-family:var(--f-body);font-size:15px;-webkit-user-select:none;user-select:none}
+#app{position:fixed;inset:0}
+canvas#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 45%,rgba(0,0,0,.75) 100%)}
+canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.012;mix-blend-mode:screen}
+#dark{position:absolute;inset:0;pointer-events:none;background:#000;opacity:1;transition:opacity 1.6s ease}
+#closing{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle at var(--cx,50%) var(--cy,55%),transparent var(--r,70%),#000 calc(var(--r,70%) + var(--soft,18%)))}
+.thought{position:absolute;left:50%;bottom:calc(32px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:min(560px,calc(100% - 32px));text-align:center;
+  font:italic 400 clamp(19px,2.6vw,24px)/1.3 var(--f-display);color:var(--ink);text-shadow:0 2px 12px #000;opacity:0;transition:opacity .5s;pointer-events:none}
+.thought.on{opacity:1}
+.chip{position:absolute;transform:translate(-50%,-130%);font:600 12px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:#0b0b0c;background:var(--ink);
+  padding:7px 11px;border-radius:999px;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;z-index:5}
+.chip.on{opacity:1}
+.chip.act{pointer-events:auto;cursor:pointer;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(236,232,223,.12)}}
+.hud{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:8px;align-items:center}
+.hud button,.btn{font:500 13px var(--f-body);color:var(--ink);background:rgba(10,10,12,.6);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.hud button:hover,.btn:hover{border-color:#55575d}
+.inv{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));font:500 12px var(--f-body);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;opacity:0;transition:opacity .4s}
+.inv.on{opacity:1}
+.turn{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}
+.turn button{width:52px;height:52px;border-radius:50%;font:400 24px/1 var(--f-body);color:var(--ink);background:rgba(10,10,12,.6);border:1px solid var(--line);cursor:pointer;touch-action:none}
+.turn button:active{background:rgba(236,232,223,.12)}
+.screen{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:rgba(3,3,4,.92);padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+.screen[hidden]{display:none}
+.screen .in{max-width:520px;display:grid;gap:18px;justify-items:center}
+/* titre : « Good Night » en script (Vampiro One) posé sur « ELISA » en capitales romaines (Cinzel Black), rouge un peu usé */
+.title{position:relative;display:inline-block;margin:0 0 .1em;font-size:clamp(64px,14.5vw,200px);line-height:1;color:#d0392e;
+  text-shadow:0 0 .12em rgba(255,40,25,.55),0 0 .4em rgba(220,20,10,.45),0 0 1em rgba(170,0,0,.35)}
+.title .t-main{display:block;font:900 1em/1 "Cinzel",var(--f-display);letter-spacing:-.015em;padding-top:.32em;}
+.title .t-cap{font-size:1.28em;line-height:0}
+.title .t-sub{position:absolute;left:28%;top:-.1em;z-index:1;font:400 .36em/1 "Vampiro One",cursive;white-space:nowrap;opacity:.96}
+/* écran titre : la maison dans le brouillard ; le lampadaire grésille de temps en temps */
+#s-title{background:#000;overflow:hidden}
+#s-title .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;pointer-events:none}
+#s-title .bg.lit{transition:opacity .06s linear}
+#s-title .bg.lit.off{opacity:0}
+#s-title::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.15) 40%,rgba(0,0,0,.6) 100%)}
+#s-title .in{position:relative;z-index:1}
+#s-title .sub,#s-title .cw{text-shadow:0 2px 12px #000;color:#c9c9c9}
+.sub{color:var(--muted);margin:0;max-width:44ch;line-height:1.55}
+.cw{font-size:12.5px;color:#6f7177;max-width:46ch;line-height:1.5;margin:0}
+.btn.primary{background:var(--ink);color:#0b0b0c;border-color:var(--ink);font-weight:600;padding:12px 26px;font-size:14px}
+.btn.primary:hover{background:#fff}
+.end-n{font:600 12px var(--f-body);letter-spacing:.28em;color:var(--red);margin:0}
+.end-t{font:400 clamp(40px,7vw,68px)/1 var(--f-display);margin:0;text-wrap:balance}
+/* fins : léger glitch à l'arrivée, puis quelques sursauts du titre */
+#s-end:not([hidden]) .in{animation:glitchIn .75s steps(1) both}
+@keyframes glitchIn{0%{clip-path:inset(42% 0 44% 0);transform:translateX(-14px)}12%{clip-path:inset(8% 0 72% 0);transform:translateX(10px)}24%{clip-path:inset(62% 0 12% 0);transform:translateX(-6px)}36%{clip-path:none;transform:none;opacity:.55}48%{clip-path:inset(28% 0 52% 0);transform:translateX(5px);opacity:1}60%,100%{clip-path:none;transform:none}}
+#s-end:not([hidden])::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 2px,transparent 2px 5px);animation:scan .75s steps(4) both}
+@keyframes scan{0%{opacity:1;transform:translateY(0)}50%{opacity:.6;transform:translateY(-6px)}100%{opacity:0}}
+#s-end .end-t{animation:titleGlitch 5s 1s infinite}
+@keyframes titleGlitch{0%,90%,100%{text-shadow:none;transform:none}91%{text-shadow:-3px 0 rgba(255,255,255,.55),3px 0 rgba(110,110,110,.6);transform:translateX(2px)}93%{text-shadow:2px 0 rgba(255,255,255,.45),-2px 0 #555;transform:translateX(-3px) skewX(-7deg)}95%{text-shadow:none;transform:translateX(1px)}96%{transform:none}}
+@media (prefers-reduced-motion:reduce){#s-end:not([hidden]) .in,#s-end .end-t,#s-end:not([hidden])::before{animation:none}}
+.end-s{font:italic 400 19px var(--f-display);color:var(--muted);margin:0}
+.journal ol{list-style:none;margin:0;padding:0;display:grid;gap:8px;text-align:left;min-width:min(340px,80vw)}
+.journal li{display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:8px;font-size:14px}
+.journal li span{font:600 11px var(--f-body);letter-spacing:.14em;color:var(--muted);width:44px}
+.journal li.lock{color:#4e5056}
+.screen.drawing{background:#000}
+.drawing img{max-height:70vh;max-width:min(520px,86vw);box-shadow:0 10px 60px #000;transform:rotate(-1.5deg)}
+#scare{position:absolute;inset:0;pointer-events:none;opacity:0;display:grid;place-items:center;background:#000}
+#scare img{width:100%;height:100%;object-fit:cover;transform:scale(1.5);filter:brightness(1.8)}
+#scare.on{opacity:1}
+#scare.on img{animation:jump .6s cubic-bezier(.15,.9,.25,1) forwards,shake .45s steps(9) 1}
+@keyframes jump{0%{transform:scale(1);filter:brightness(2.2)}20%{filter:brightness(1)}100%{transform:scale(1.35);filter:brightness(.9)}}
+@keyframes shake{0%,100%{translate:0 0}20%{translate:-14px 8px}40%{translate:12px -10px}60%{translate:-8px -6px}80%{translate:6px 9px}}
+
+ .pop{position:absolute;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,10px) scale(.92);transform-origin:50% 100%;opacity:0;pointer-events:none;
+  width:min(420px,calc(100% - 32px));padding:18px 20px 16px;background:rgba(8,8,9,.86);border:1px solid #3a3a3a;border-radius:4px;box-shadow:0 18px 50px rgba(0,0,0,.7);
+  display:grid;gap:10px;text-align:center;transition:opacity .2s ease,transform .26s cubic-bezier(.2,1.3,.4,1);z-index:6}
+.pop.on{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
+.pop.big{bottom:auto;top:50%;transform:translate(-50%,-47%) scale(.94);transform-origin:50% 50%;width:auto;max-width:calc(100% - 24px);padding:0;gap:0;background:#000;border:0;box-shadow:0 30px 120px #000}
+.pop.big .pop-cap{position:absolute;left:0;right:0;bottom:0;padding:clamp(40px,9vh,90px) 24px 18px;background:linear-gradient(transparent,rgba(0,0,0,.82) 55%);display:grid;gap:8px;justify-items:center;pointer-events:none}
+.pop.big .pop-cap .pop-a{pointer-events:auto}
+.pop.big .pop-cap.empty{background:none}
+.pop.big .pop-t{font-size:clamp(20px,2.6vw,27px);text-shadow:0 2px 14px #000}
+.pop-cap{display:grid;gap:10px}
+.pop-fig.noanim img{transition:none!important;animation:none!important}
+.pop.big.on{transform:translate(-50%,-50%) scale(1)}
+.pop-fig{position:relative;margin:0 auto;width:min(calc(100vw - 40px),calc((100vh - 150px)*1.34),1240px);aspect-ratio:1962/1464;border-radius:2px;overflow:hidden;background:#000}
+.pop-fig[hidden]{display:none}
+.pop-fig img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .45s ease}
+.pop-fig .alt{opacity:0}.pop-fig.taken .alt{opacity:1}.pop-fig.flash .alt{transition:opacity .12s ease-out}
+.pop-fig.fadein img:first-child{animation:fadein var(--fade,.8s) ease-in both}
+@keyframes fadein{from{opacity:0}}
+.pop-fig img{transform-origin:var(--eyes,50% 50%)}
+.pop.lunge .pop-fig img{transform:scale(4.2);filter:brightness(1.35) contrast(1.4);transition:transform .32s cubic-bezier(.6,0,.9,.4),filter .32s}
+@media (prefers-reduced-motion:reduce){.pop.lunge .pop-fig img{transform:none}.pop-fig.fadein img:first-child{animation:none}}
+.ca-on .pop-fig,.ca-on #scare-img{filter:url(#caf)}
+.glitch .pop-fig,.glitch #scare-img,.glitch #s-end .in{animation:glitchJ .5s steps(1) 1}
+@keyframes glitchJ{0%{clip-path:inset(30% 0 52% 0);translate:-16px 0}14%{clip-path:inset(70% 0 8% 0);translate:12px 0}28%{clip-path:inset(5% 0 80% 0);translate:-8px 0}42%{clip-path:none;translate:6px 0}56%{clip-path:inset(45% 0 35% 0);translate:-4px 0}70%,100%{clip-path:none;translate:0 0}}
+@media (prefers-reduced-motion:reduce){.glitch .pop-fig,.glitch #scare-img,.glitch #s-end .in{animation:none}}
+#popbg{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:5}
+#popbg.on{opacity:1;pointer-events:auto}
+.pop-fig::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 48%,transparent 45%,rgba(0,0,0,.55) 75%,rgba(0,0,0,.95) 100%)}
+.pop-take{position:absolute;left:46.6%;top:11.3%;width:40.3%;height:37.9%;border:0;padding:0;background:transparent;cursor:pointer}
+.pop-take:focus-visible{outline:none}
+.pop-take[hidden]{display:none}
+.pop-k{margin:0;font:600 11px var(--f-body);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.pop-t{margin:0;font:italic 400 clamp(19px,2.4vw,23px)/1.3 var(--f-display);text-wrap:balance}
+.pop-a{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:4px}
+.screen.popin .in{animation:popin .3s cubic-bezier(.2,1.3,.4,1)}
+@keyframes popin{from{opacity:0;transform:scale(.9)}}
+@media (prefers-reduced-motion:reduce){.pop{transition:opacity .2s}.screen.popin .in{animation:none}}
+.help{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-size:12px;color:#5d5f65;pointer-events:none}
+.loading{color:var(--muted);font-size:13px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){#scare.on img{animation:none;transform:none;filter:none}.chip.act{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="gl"></canvas>
+  <div class="vignette"></div>
+  <div id="closing"></div>
+  <div id="dark"></div>
+  <canvas id="grain"></canvas>
+  <div class="inv" id="inv">Flashlight</div>
+  <div class="hud"><button id="b-journal" type="button">Endings</button><button id="b-pause" type="button" hidden>Pause</button></div>
+  <div class="chip" id="chip"></div>
+  <div class="thought" id="thought"></div>
+  <div id="popbg"></div>
+  <div class="pop" id="pop" role="dialog" aria-live="polite"><div class="pop-fig" id="pop-fig" hidden><img id="pop-img" alt=""><img class="alt" id="pop-img2" alt=""><button class="pop-take" id="pop-take" type="button" aria-label="Take the flashlight" hidden></button></div><div class="pop-cap" id="pop-cap"><p class="pop-k" id="pop-k"></p><p class="pop-t" id="pop-t"></p><div class="pop-a" id="pop-a"></div></div></div>
+  <p class="help" id="help">Click to walk. Elisa looks toward the mouse (← → or Q / D on the keyboard).</p>
+  <div class="turn" id="turn" hidden><button id="b-tl" type="button" aria-label="Turn left">⟲</button><button id="b-tr" type="button" aria-label="Turn right">⟳</button></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="caf" color-interpolation-filters="sRGB">
+    <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/><feOffset in="r" id="caR" dx="0" dy="0" result="r2"/>
+    <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
+    <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/><feOffset in="b" id="caB" dx="0" dy="0" result="b2"/>
+    <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/></filter></svg>
+  <div id="scare" aria-hidden="true"><img id="scare-img" alt=""></div>
+
+  <section class="screen" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="in">
+    <h1 class="title" aria-label="Good Night Elisa"><span class="t-sub" aria-hidden="true">Good Night</span><span class="t-main" aria-hidden="true"><span class="t-cap">E</span>LIS<span class="t-cap">A</span></span></h1>
+    <p class="sub">Elisa wakes up from a nightmare. She wants to reach her parents. Prototype: the bedroom.</p>
+    <button class="btn primary" id="b-start" type="button" disabled>Loading…</button>
+    <p class="cw">Unsettling atmosphere, jump scares and loud sounds. Best played with sound on.</p>
+  </div></section>
+
+  <section class="screen" id="s-end" hidden><div class="in">
+    <p class="end-n" id="end-n"></p><h2 class="end-t" id="end-t"></h2><p class="end-s" id="end-s"></p>
+    <button class="btn primary" id="b-again" type="button">Wake up</button>
+    <button class="btn" id="b-etitle" type="button">Title screen</button>
+  </div></section>
+
+  <section class="screen" id="s-pause" hidden><div class="in">
+    <h2 class="end-t">Pause</h2>
+    <button class="btn primary" id="b-resume" type="button">Resume</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn" id="b-pjournal" type="button">Endings</button><button class="btn" id="b-sketch" type="button">Drawing effect: on</button><button class="btn" id="b-restart" type="button">Restart the night</button><button class="btn" id="b-ptitle" type="button">Title screen</button></div>
+    <p class="cw">Esc or P to resume.</p>
+  </div></section>
+
+  <section class="screen journal" id="s-journal" hidden><div class="in">
+    <h2 class="end-t" style="font-size:40px">Endings</h2><ol id="j-list"></ol>
+    <button class="btn" id="b-jclose" type="button">Close</button>
+  </div></section>
+
+  <section class="screen drawing popin" id="s-drawing" hidden><div class="in">
+    <img src="dessin_labyrinthe.webp" alt="A child’s drawing: an arrowed path leads from a little girl to a doghouse, under the moon.">
+    <button class="btn" id="b-dclose" type="button">Put the drawing down</button>
+  </div></section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/libs/meshopt_decoder.js"></script>
+<script src="chambre_glb.js"></script>
+<script src="elisa_glb.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const mqReduce=matchMedia("(prefers-reduced-motion: reduce)"),mqTouch=matchMedia("(hover: none)");let REDUCE=mqReduce.matches,TOUCH=mqTouch.matches;
+try{mqReduce.addEventListener("change",e=>REDUCE=e.matches);mqTouch.addEventListener("change",e=>TOUCH=e.matches)}catch(e){}
+/* Coordonnées du plan Blender (x, y au sol, z en haut) -> Three.js (x, z, -y) */
+const V=(x,y,z)=>new THREE.Vector3(x,z||0,-y);
+
+/* ---------- rendu ---------- */
+const canvas=$("gl");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+const DPR=Math.min(devicePixelRatio,1.5);renderer.setPixelRatio(DPR);  // au-delà, le coût explose pour un gain invisible sous le grain
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+renderer.physicallyCorrectLights=true;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x000000);
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,0.1,100);
+const target=V(2.45,2.45,0.9);
+cam.position.copy(target).add(new THREE.Vector3(10,10*Math.SQRT2*Math.tan(THREE.MathUtils.degToRad(35.264)),-10));
+cam.lookAt(target);
+function resize(){const w=innerWidth,h=innerHeight,a=w/h;renderer.setSize(w,h,false);
+  let hh=a>1.33?6.1:Math.max(6.1,7.9/a);const hw=hh*a;cam.left=-hw/2;cam.right=hw/2;cam.top=hh/2;cam.bottom=-hh/2;cam.updateProjectionMatrix();}
+addEventListener("resize",resize);resize();
+
+/* ---------- passe « dessin au graphite » : grain de papier, traits de crayon dans les ombres,
+   arêtes visibles (trait clair sur les volumes sombres, trait foncé sur les surfaces claires) ---------- */
+const isGL2=renderer.capabilities.isWebGL2;
+const rt=new THREE.WebGLRenderTarget(1,1,{type:isGL2?THREE.HalfFloatType:THREE.UnsignedByteType,samples:isGL2?2:0});
+// deuxième passe : normales + profondeur, pour trouver les arêtes de la géométrie
+const nrt=new THREE.WebGLRenderTarget(1,1,{type:isGL2?THREE.HalfFloatType:THREE.UnsignedByteType});
+const normMat=new THREE.ShaderMaterial({side:THREE.DoubleSide,
+  vertexShader:"varying vec3 vN;varying float vZ;void main(){vN=normalize(mat3(modelMatrix)*normal);vec4 mv=modelViewMatrix*vec4(position,1.);vZ=-mv.z;gl_Position=projectionMatrix*mv;}",
+  fragmentShader:"varying vec3 vN;varying float vZ;void main(){vec3 n=normalize(vN);if(!gl_FrontFacing)n=-n;gl_FragColor=vec4(n*.5+.5,vZ/40.);}"});
+const postScene=new THREE.Scene(),postCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const postMat=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,
+  uniforms:{tD:{value:rt.texture},tN:{value:nrt.texture},res:{value:new THREE.Vector2(1,1)},dpr:{value:1},time:{value:0},expo:{value:1.05},on:{value:1},ca:{value:0},gl:{value:0},vRot:{value:new THREE.Matrix3()}},
+  vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+  fragmentShader:`uniform sampler2D tD,tN;uniform vec2 res;uniform float dpr,time,expo,on,ca,gl;uniform mat3 vRot;varying vec2 vUv;
+  float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+  float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+1.),f.x),f.y);}
+  vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}
+  float L(vec2 uv){vec3 c=pow(aces(texture2D(tD,uv).rgb*expo*.8),vec3(1./2.2));return dot(c,vec3(.299,.587,.114));}
+  vec3 N(vec2 uv){return texture2D(tN,uv).xyz*2.-1.;}
+  // arêtes VERTICALES seulement : forte différence gauche/droite, faible haut/bas, entre deux faces verticales
+  float vedge(vec2 uv,vec2 px){vec4 c=texture2D(tN,uv);
+    vec4 l=texture2D(tN,uv-vec2(px.x,0.)),r=texture2D(tN,uv+vec2(px.x,0.)),u=texture2D(tN,uv+vec2(0.,px.y)),d=texture2D(tN,uv-vec2(0.,px.y));
+    float zx=abs(l.w-r.w)/max(c.w,.002),zy=abs(u.w-d.w)/max(c.w,.002);
+    float nx=length(l.xyz-r.xyz),ny=length(u.xyz-d.xyz);
+    float ex=max(smoothstep(.5,.8,nx),smoothstep(.08,.16,zx)),ey=max(smoothstep(.5,.8,ny),smoothstep(.08,.16,zy));
+    float vert=1.-smoothstep(.25,.45,abs(c.y*2.-1.));
+    return clamp(ex-ey*1.2,0.,1.)*vert;}
+  void main(){vec2 px=1./res;vec2 fc=gl_FragCoord.xy/dpr;
+    // glitch : des bandes horizontales qui se décalent par à-coups
+    vec2 uv=vUv;if(gl>.01){float band=floor(vUv.y*26.)+floor(time*16.)*17.;if(h(vec2(band,1.))<gl*.5)uv.x+=(h(vec2(band,7.))-.5)*.09*gl;
+      if(h(vec2(floor(time*16.),3.))<gl*.3)uv.y+=(h(vec2(floor(time*16.),5.))-.5)*.02*gl;}
+    float c=L(uv);
+    vec2 cao=(uv-.5)*ca*.026+vec2(ca*.003,0.);float l0=L(uv),dR=ca>.001?L(uv+cao)-l0:0.,dB=ca>.001?L(uv-cao)-l0:0.;
+    if(on<.5){gl_FragColor=vec4(clamp(vec3(c+dR,c,c+dB),0.,1.),1.);return;}
+    // léger flou global (l'image seulement : le grain reste net)
+    vec2 o=px*dpr*.9;
+    c=c*.4+(L(uv+o)+L(uv-o)+L(uv+vec2(o.x,-o.y))+L(uv+vec2(-o.x,o.y)))*.15;   // 5 lectures au lieu de 9
+    // tonalité : douce dans les tons moyens, le très sombre s'enfonce dans le noir
+    float dark=1.-smoothstep(.06,.45,c);
+    c=mix(c,pow(c,.88),.6);
+    c*=mix(1.,.82,dark*dark);
+    // trait clair sur les arêtes verticales des volumes sombres
+    float e=vedge(uv,px);
+    c+=e*.16*(1.-smoothstep(.2,.55,c));
+    vec3 nb=texture2D(tN,uv).xyz*2.-1.;if(length(nb)<.3)c*=.0;
+    gl_FragColor=vec4(clamp(vec3(c+dR*1.2,c,c+dB*1.2),0.,1.),1.);}`});
+postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat));
+function sizePost(){const r=DPR,w=Math.round(innerWidth*r),h=Math.round(innerHeight*r);rt.setSize(w,h);nrt.setSize(w,h);postMat.uniforms.res.value.set(w,h);postMat.uniforms.dpr.value=r}
+addEventListener("resize",sizePost);sizePost();
+let sketchOn=true;try{sketchOn=localStorage.getItem("elisa-croquis")!=="0"}catch(e){}
+postMat.uniforms.on.value=sketchOn?1:0;
+const nClear=new THREE.Color(.5,.5,.5);
+let lastShadowKey="";
+function hidden3D(){return !$("s-title").hidden||!$("s-end").hidden||!$("s-journal").hidden&&S.mode==="title"||($("popbg").classList.contains("on")&&getComputedStyle($("popbg")).opacity==="1")}
+function renderFrame(){if(hidden3D())return;
+  // ombres : seulement si Elisa, une porte, un tiroir ou la lampe ont bougé
+  const e=elisa.matrixWorld.elements,k=(e[12]+e[13]*7+e[14]*13+e[0]*3+e[2]*5).toFixed(3)+anims.length+(S.hasLamp?torch.target.position.x.toFixed(2):"");
+  if(k!==lastShadowKey||anims.length){renderer.shadowMap.needsUpdate=true;lastShadowKey=k}
+  postMat.uniforms.vRot.value.setFromMatrix4(cam.matrixWorldInverse);
+  renderer.setRenderTarget(rt);renderer.render(scene,cam);
+  if(sketchOn){const bg=scene.background;scene.background=nClear;scene.overrideMaterial=normMat;
+    const hid=[ceil,lampGlow,...eyeGlows].filter(Boolean).map(o=>{const v=o.visible;o.visible=false;return[o,v]});
+    renderer.setRenderTarget(nrt);renderer.setClearColor(0x808080,0);renderer.clear();renderer.render(scene,cam);
+    hid.forEach(([o,v])=>o.visible=v);scene.overrideMaterial=null;scene.background=bg}
+  renderer.setRenderTarget(null);renderer.render(postScene,postCam)}
+
+/* lumières : lune par la fenêtre, veilleuse, ambiance très faible, lampe torche portée par Elisa */
+const hemi=new THREE.HemisphereLight(0xffffff,0x0b0b0b,0.32);scene.add(hemi);
+const moon=new THREE.DirectionalLight(0xffffff,3.4);
+const moonTarget=V(2.6,2.6,0);moon.target.position.copy(moonTarget);
+moon.position.copy(moonTarget).add(new THREE.Vector3(-1.9,1.25,0.35).normalize().multiplyScalar(8));
+moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);Object.assign(moon.shadow.camera,{left:-5,right:5,top:5,bottom:-5,near:1,far:20});moon.shadow.bias=-0.0006;moon.shadow.normalBias=0.02;
+scene.add(moon,moon.target);
+let nightBase=.9;const night=new THREE.PointLight(0xffffff,0.9,3.2,2);night.position.copy(V(2.84,0.38,0.62));scene.add(night);
+const torch=new THREE.SpotLight(0xffffff,0,9,THREE.MathUtils.degToRad(19),0.45,1.6);
+torch.castShadow=true;torch.shadow.mapSize.set(1024,1024);torch.shadow.bias=-0.0008;scene.add(torch,torch.target);
+// plafond invisible : il bloque la lune ailleurs que par la fenêtre
+const ceil=new THREE.Mesh(new THREE.BoxGeometry(5.4,0.05,5.4),new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false}));
+ceil.position.copy(V(2.5,2.5,2.73));ceil.castShadow=true;scene.add(ceil);
+
+/* ---------- son (Web Audio, tout est synthétisé) ---------- */
+let AC=null,master=null,droneG=null,heartTimer=null;
+function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop();preloadArt()}catch(e){AC=null}}
+/* sons enregistrés (générés avec Sunra / ElevenLabs) : chargés au démarrage, sinon on garde les sons de synthèse */
+const SFX_FILES=["cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
+function loadSfx(){SFX_FILES.forEach(n=>fetch("sons/"+n+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).then(buf=>{SFX[n]=buf;if(n==="nuit")nightLoop();if(n==="musique")musicLoop()}).catch(()=>{}))}
+function sfx(n,o){if(!AC||!SFX[n])return false;o=o||{};const src=AC.createBufferSource();src.buffer=SFX[n];src.playbackRate.value=o.rate||1;
+  const g=AC.createGain();g.gain.value=o.vol==null?1:o.vol;src.connect(g).connect(o.dest||master);src.start(AC.currentTime+(o.at||0));return true}
+/* musique : en boucle, nettement sous les bruitages ; elle se retire pendant les sursauts et les fins */
+let musicG=null,musicSrc=null;const MUSIC_VOL=.2;
+const musicEl=new Audio();musicEl.loop=true;musicEl.preload="none";
+function musicLoop(){if(musicSrc)return;musicEl.src="sons/musique.mp3";musicG=AC.createGain();musicG.gain.value=0;musicG.connect(master);
+  musicSrc=AC.createMediaElementSource(musicEl);musicSrc.connect(musicG);musicEl.play().catch(()=>{});musicG.gain.setTargetAtTime(MUSIC_VOL,AC.currentTime,2)}
+function musicLevel(k,t){if(musicG)musicG.gain.setTargetAtTime(MUSIC_VOL*k,AC.currentTime,t||.6)}
+let nightSrc=null;function nightLoop(){if(nightSrc||!SFX.nuit)return;nightSrc=AC.createBufferSource();nightSrc.buffer=SFX.nuit;nightSrc.loop=true;
+  const g=AC.createGain();g.gain.value=1.4;nightSrc.connect(g).connect(droneG);nightSrc.start()}
+function noiseBuf(sec){const b=AC.createBuffer(1,AC.sampleRate*sec,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b}
+function drone(){droneG=AC.createGain();droneG.gain.value=.0;droneG.connect(master);
+  [41,55.2,82.5].forEach((f,i)=>{const o=AC.createOscillator();o.type=i?"sine":"triangle";o.frequency.value=f;const g=AC.createGain();g.gain.value=[.16,.07,.03][i];o.connect(g).connect(droneG);o.start()});
+  const n=AC.createBufferSource();n.buffer=noiseBuf(4);n.loop=true;const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=380;const g=AC.createGain();g.gain.value=.05;n.connect(lp).connect(g).connect(droneG);n.start()}
+function droneLevel(v,t){if(!AC)return;droneG.gain.setTargetAtTime(v,AC.currentTime,t||1)}
+function env(node,t0,a,peak,d){node.gain.setValueAtTime(0,t0);node.gain.linearRampToValueAtTime(peak,t0+a);node.gain.exponentialRampToValueAtTime(.0001,t0+a+d)}
+function thud(at){if(!AC||sfx("choc",{at,vol:.9}))return;const t=AC.currentTime+(at||0),o=AC.createOscillator(),g=AC.createGain();o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(32,t+.5);o.connect(g).connect(master);env(g,t,.005,.9,.8);o.start(t);o.stop(t+1)}
+function cry(at){if(!AC||sfx("pleur",{at,vol:.7}))return;const t=AC.currentTime+(at||0),n=AC.createBufferSource();n.buffer=noiseBuf(1.4);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.Q.value=9;bp.frequency.setValueAtTime(900,t);bp.frequency.linearRampToValueAtTime(1500,t+.25);bp.frequency.linearRampToValueAtTime(700,t+1.1);
+  const o=AC.createOscillator();o.type="sawtooth";o.frequency.setValueAtTime(620,t);o.frequency.linearRampToValueAtTime(820,t+.3);o.frequency.linearRampToValueAtTime(480,t+1.1);const og=AC.createGain();
+  const g=AC.createGain();n.connect(bp).connect(g);o.connect(og).connect(g);og.gain.value=.05;g.connect(master);env(g,t,.06,.35,1.1);n.start(t);o.start(t);o.stop(t+1.3)}
+function creak(){if(!AC||sfx("armoire",{vol:.8}))return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain(),bp=AC.createBiquadFilter();o.type="sawtooth";bp.type="bandpass";bp.Q.value=14;bp.frequency.value=1200;
+  o.frequency.setValueAtTime(48,t);for(let i=0;i<14;i++)o.frequency.setValueAtTime(40+Math.random()*30,t+i*.11);o.connect(bp).connect(g).connect(master);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.25,t+.1);g.gain.linearRampToValueAtTime(.18,t+1.4);g.gain.linearRampToValueAtTime(0,t+1.7);o.start(t);o.stop(t+1.8)}
+function whisper(){if(!AC)return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(1.2);const hp=AC.createBiquadFilter();hp.type="highpass";hp.frequency.value=2500;const g=AC.createGain();n.connect(hp).connect(g).connect(master);env(g,t,.3,.12,.8);n.start(t)}
+function click(){if(!AC||sfx("lampe"))return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type="square";o.frequency.value=1400;o.connect(g).connect(master);env(g,t,.001,.08,.05);o.start(t);o.stop(t+.08)}
+function drawerSnd(){if(!AC||sfx("tiroir",{vol:.8}))return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(.6);const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=700;const g=AC.createGain();n.connect(lp).connect(g).connect(master);env(g,t,.05,.3,.45);n.start(t)}
+let stepLP=null;function step(){if(AC&&!stepLP){stepLP=AC.createBiquadFilter();stepLP.type="lowpass";stepLP.frequency.value=1300;stepLP.Q.value=.4;stepLP.connect(master)}
+  if(!AC||sfx("pas",{vol:1.7,rate:.85+Math.random()*.15,dest:stepLP}))return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(.12);const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=420;const g=AC.createGain();n.connect(lp).connect(g).connect(master);env(g,t,.005,.12,.09);n.start(t)}
+function stinger(){if(!AC||sfx("sursaut"))return;const t=AC.currentTime;[220,233,311,466].forEach(f=>{const o=AC.createOscillator(),g=AC.createGain();o.type="sawtooth";o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.5,t+1.2);o.connect(g).connect(master);env(g,t,.01,.22,1.3);o.start(t);o.stop(t+1.4)});
+  const n=AC.createBufferSource();n.buffer=noiseBuf(1);const g=AC.createGain();n.connect(g).connect(master);env(g,t,.005,.6,.9);n.start(t)}
+function gasp(){if(!AC||sfx("reveil",{vol:.9}))return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(.7);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.Q.value=2;bp.frequency.setValueAtTime(600,t);bp.frequency.linearRampToValueAtTime(1800,t+.4);const g=AC.createGain();n.connect(bp).connect(g).connect(master);env(g,t,.04,.7,.5);n.start(t)}
+let heartOn=false,heartBpm=70,heartAcc=6,heartId=0;
+function heart(rate,acc){stopHeart();if(!AC)return;heartOn=true;heartBpm=rate||70;heartAcc=acc==null?6:acc;const id=++heartId;
+  const beat=()=>{if(!heartOn||id!==heartId)return;const t=AC.currentTime;if(!sfx("coeur",{vol:.9}))[0,.22].forEach((d,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=i?48:58;o.connect(g).connect(master);env(g,t+d,.01,i?.35:.55,.18);o.start(t+d);o.stop(t+d+.3)});
+    heartBpm=Math.min(heartBpm+heartAcc,190);later(beat,60000/heartBpm)};beat()}
+function heartTo(bpm,ms){const from=heartBpm;anim(ms,k=>heartBpm=from+(bpm-from)*k*k)}
+function torchOn(){if(AC&&!sfx("allumer",{vol:.9}))click()}
+function humIn(){if(AC)sfx("hum_in",{vol:.75})}
+function humOut(m){if(AC)sfx(m==="bof"?"hum_bof":"hum_out",{vol:.75})}
+function humNope(){if(AC)sfx("hum_non",{vol:.8})}   // action impossible
+function whisper2(){if(AC)sfx("chuchotement",{vol:.7})}
+function doorSnd(){if(AC)sfx("porte",{vol:.8})}
+function sheets(){if(AC&&!sfx("matelas",{vol:.85}))sfx("draps",{vol:.7})}
+function stopHeart(){heartOn=false}
+
+/* ---------- grain ---------- */
+/* grain animé : 6 images de bruit tirées au hasard et décalées à chaque image */
+const gc=$("grain"),gx=gc.getContext("2d"),gFrames=[];
+for(let f=0;f<6;f++){const c=document.createElement("canvas");c.width=c.height=180;const x=c.getContext("2d"),im=x.createImageData(180,180);
+  for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255|0;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255}x.putImageData(im,0,0);gFrames.push(c)}
+function sizeGrain(){gc.width=Math.ceil(innerWidth/1.4);gc.height=Math.ceil(innerHeight/1.4)}sizeGrain();addEventListener("resize",sizeGrain);
+let grainT=0;function grain(ts){if(ts-grainT<50)return;grainT=ts;const pat=gx.createPattern(gFrames[Math.random()*gFrames.length|0],"repeat");
+  gx.save();gx.translate(-Math.random()*180,-Math.random()*180);gx.fillStyle=pat;gx.fillRect(0,0,gc.width+180,gc.height+180);gx.restore()}
+
+/* ---------- interface ---------- */
+let thoughtTimer=null;
+/* les textes s'écrivent lettre par lettre */
+const typers=new Map();
+function typeText(el,t,cps,done){clearInterval(typers.get(el));el.setAttribute("aria-label",t);el.textContent="";let i=0;if(!t){done&&done();return}
+  const t0=performance.now(),step=()=>{i=Math.min(t.length,Math.floor((performance.now()-t0)/1000*(cps||34))+1);el.textContent=t.slice(0,i);if(i>=t.length){clearInterval(typers.get(el));done&&done()}};
+  if(REDUCE){el.textContent=t;done&&done();return}
+  typers.set(el,setInterval(step,25))}
+function think(t,ms){const el=$("thought");typeText(el,t);el.classList.add("on");clearTimeout(thoughtTimer);thoughtTimer=setTimeout(()=>el.classList.remove("on"),(ms||3200)+t.length*30)}
+const chip=$("chip");
+function showChip(text,pos,act){chip.textContent=text;chip.classList.add("on");chip.classList.toggle("act",!!act);chip._pos=pos}
+function hideChip(){chip.classList.remove("on","act");chip._pos=null}
+function placeChip(){if(!chip._pos)return;const p=chip._pos.clone().project(cam);chip.style.left=((p.x+1)/2*innerWidth)+"px";chip.style.top=((1-p.y)/2*innerHeight)+"px"}
+
+const ENDINGS=[{id:"paralysie",n:"ENDING 01",t:"Sleep paralysis"},{id:"placard",n:"ENDING 02",t:"The wardrobe"},{id:"souslit",n:"FIN 03",t:"Under the bed"},{id:"noir",n:"ENDING 04",t:"Fear of the dark"},{id:"couloir",n:"NEXT",t:"The hallway"}];
+let found=new Set();try{found=new Set(JSON.parse(localStorage.getItem("elisa-fins")||"[]"))}catch(e){}
+function saveFound(){try{localStorage.setItem("elisa-fins",JSON.stringify([...found]))}catch(e){}}
+function renderJournal(){$("j-list").innerHTML=ENDINGS.map(e=>found.has(e.id)?`<li><span>${e.n}</span>${e.t}</li>`:`<li class="lock"><span>${e.n}</span>? ? ?</li>`).join("")}
+$("b-journal").onclick=()=>{renderJournal();$("s-journal").hidden=false};
+$("b-jclose").onclick=()=>{$("s-journal").hidden=true};
+$("b-dclose").onclick=()=>closeDrawing();
+
+/* ---------- chargement de la chambre ---------- */
+const nodes={},meshes=[];
+
+/* ---------- grain de graphite posé SUR les volumes ----------
+   une texture de traits verticaux, projetée sur chaque face selon son orientation :
+   faces verticales (murs, côtés) -> traits verticaux ; faces horizontales (sol, dessus) -> traits le long du plan.
+   La projection se fait dans le repère de l'objet : le grain bouge avec la porte, les tiroirs, Elisa. */
+const grainTex=(()=>{const S=256,a=new Float32Array(S*S).fill(0);
+  let seed=7;const R=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let k=0;k<7000;k++){const x0=Math.floor(R()*S),y0=Math.floor(R()*S),len=4+R()*20,w=R()<.3?2:1,v=(R()<.78?-1:.7)*(.05+R()*.16);
+    for(let y=0;y<len;y++){const f=Math.sin(Math.PI*y/len);for(let dx=0;dx<w;dx++){a[((y0+y)%S)*S+(x0+dx)%S]+=v*f}}}
+  const c=document.createElement("canvas");c.width=c.height=S;const cx=c.getContext("2d"),im=cx.createImageData(S,S);
+  for(let i=0;i<S*S;i++){const v=Math.max(0,Math.min(1,.9+a[i]+(R()-.5)*.08))*255;im.data[i*4]=im.data[i*4+1]=im.data[i*4+2]=v;im.data[i*4+3]=255}
+  cx.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t})();
+const grainDone=new Set();
+function grainify(root,scale,world){root.traverse(o=>{if(!o.isMesh)return;[].concat(o.material).forEach(m=>{
+  if(!m||!m.isMeshStandardMaterial||grainDone.has(m)||/Vitre|Ciel/.test(m.name))return;grainDone.add(m);
+  m.onBeforeCompile=sh=>{sh.uniforms.tGrain={value:grainTex};sh.uniforms.gScale={value:scale||1.4};
+    sh.vertexShader=sh.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vGP;varying vec3 vGN;")
+      .replace("#include <begin_vertex>",world?"#include <begin_vertex>\nvGP=(modelMatrix*vec4(transformed,1.)).xyz;":"#include <begin_vertex>\nvGP=position;")
+      .replace("#include <defaultnormal_vertex>",world?"#include <defaultnormal_vertex>\nvGN=inverseTransformDirection(transformedNormal,viewMatrix);":"#include <defaultnormal_vertex>\nvGN=objectNormal;");
+    sh.fragmentShader=sh.fragmentShader.replace("#include <common>","#include <common>\nuniform sampler2D tGrain;uniform float gScale;varying vec3 vGP;varying vec3 vGN;")
+      .replace("#include <map_fragment>",`#include <map_fragment>
+      { vec3 an=pow(abs(normalize(vGN)),vec3(4.));an/=an.x+an.y+an.z;vec3 p=vGP*gScale;
+        float g=texture2D(tGrain,p.zy).r*an.x+texture2D(tGrain,p.zx).r*an.y+texture2D(tGrain,p.xy).r*an.z;
+        diffuseColor.rgb*=mix(1.,g,.85); }`)};
+  m.needsUpdate=true})})}
+const elisa=new THREE.Group();scene.add(elisa);
+let ready=false;
+function glbBuffer(b64){const s=atob(b64||window.ELISA_GLB||""),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer}
+const gltf=()=>new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+gltf().parse(glbBuffer(),"",g=>{
+  scene.add(g.scene);
+  g.scene.traverse(o=>{if(o.isMesh&&!o.name&&o.parent&&o.parent.name)o.name=o.parent.name;else if(o.name)nodes[o.name]=o;
+    if(o.isMesh){meshes.push(o);
+      const n=o.name,mn=(o.material&&o.material.name)||"";
+      const noShadow=/Vitre|Ciel|Veilleuse/.test(mn);o.castShadow=!noShadow;o.receiveShadow=true;
+      if(mn==="M_Vitre"){o.material.transparent=true;o.material.opacity=.12;o.material.depthWrite=false}
+      if(mn==="M_Mur_papier_peint"){o.material.color.setRGB(.2,.2,.21)}
+      if(mn==="M_Veilleuse"){o.material.emissiveIntensity=4}
+    }});
+  // la silhouette provisoire de la chambre est remplacée par le vrai modèle d’Elisa
+  ["Elisa_robe","Elisa_tete","Elisa_cheveux","Elisa_epaules"].forEach(n=>{const o=nodes[n];if(o&&o.parent)o.parent.remove(o)});
+  // nouvelle disposition : on déplace des groupes d’objets (point d’ancrage, rotation, échelle)
+  const regroup=(re,from,to,rotY,scale)=>{const gr=new THREE.Group();gr.position.copy(from);g.scene.add(gr);g.scene.updateMatrixWorld(true);
+    Object.keys(nodes).filter(n=>re.test(n)&&nodes[n].parent===g.scene).forEach(n=>gr.attach(nodes[n]));
+    gr.position.copy(to);gr.rotation.y=rotY;if(scale)gr.scale.copy(scale);g.scene.updateMatrixWorld(true);return gr};
+  // le lit prend la place de l’armoire : tête contre le mur de la porte, pied vers la pièce
+  regroup(/^(Lit_|Doudou_|Sous_lit_)/,V(0.2,3.7,0),V(2.0,0.2,0),Math.PI/2);
+  // la table de nuit suit le lit, à droite de la tête de lit
+  regroup(/^(Table_nuit|Veilleuse_|Livre_table_nuit)/,V(0.38,2.86,0),V(2.84,0.38,0),Math.PI/2);
+  // l’armoire passe à droite de la fenêtre : 30 % moins large, mais plus haute
+  regroup(/^(Placard_|PIV_Placard_porte$)/,V(2.0,0,0),V(0,3.9,0),-Math.PI/2,new THREE.Vector3(.7,.95,.7));
+  // l’étagère à peluches passe à droite de la porte
+  regroup(/^(Etagere_|Peluche_)/,V(0.3,4.65,0),V(4.75,0.3,0),Math.PI/2);
+  // la chaise est rangée sous le bureau
+  Object.keys(nodes).filter(n=>/^Chaise_/.test(n)).forEach(n=>nodes[n].position.x-=.45);
+  g.scene.updateMatrixWorld(true);grainify(g.scene,1.4,true);
+  buildNav();buildHotspots();
+  gltf().parse(glbBuffer(window.ELISA_PERSO_GLB),"",ge=>{
+    ge.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(/cheveux/i.test(o.material.name))o.material.side=THREE.DoubleSide}});
+    // Elisa plus petite que nature (0,83 m) : la chambre paraît trop grande pour elle
+    grainify(ge.scene,2.2);ge.scene.scale.setScalar(.72);elisa.add(ge.scene);elisa.position.copy(V(2.82,1.2,0));elisa.rotation.y=Math.PI/2;elisa.updateMatrixWorld(true);
+    const root=ge.scene.getObjectByName("Elisa")||ge.scene;
+    const pivot=(names,x,y)=>{const g=new THREE.Group();root.add(g);g.position.set(x,y,0);g.updateMatrixWorld(true);
+      names.forEach(n=>{const o=ge.scene.getObjectByName(n);if(o)g.attach(o)});return g};
+    const body=new THREE.Group();root.add(body);[...root.children].forEach(c=>{if(c!==body)body.attach(c)});
+    rig={amp:0,body,legL:pivot(["Elisa_jambe_b","Elisa_chaussette_b"],-.078,.245),legR:pivot(["Elisa_jambe_a","Elisa_chaussette_a"],.078,.245),
+      armL:pivot([],-.11,.83),armR:pivot([],.11,.83)};  // les bras font partie de la robe dans ce modèle
+    [rig.legL,rig.legR,rig.armL,rig.armR].forEach(g=>root.add(g));
+    // la lampe tenue dans une main : petite lueur
+    lampGlow=new THREE.Group();lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.026,16,10),new THREE.MeshBasicMaterial({color:0xffffff})));
+    lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.07,16,10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,depthWrite:false})));
+    lampGlow.add(new THREE.PointLight(0xffffff,.6,1.1,2));lampGlow.position.set(.205,.41,.07);lampGlow.visible=false;root.add(lampGlow);
+
+    ready=true;const b=$("b-start");b.disabled=false;b.textContent="Start";
+  },()=>{$("b-start").textContent="Elisa couldn’t load"});
+},()=>{$("b-start").textContent="The bedroom couldn’t load"});
+
+/* yeux rouges (créés ici : apparaissent pendant l’événement) */
+/* yeux de monstre : feuilles blanches pointues, sans pupille, coin intérieur abaissé (d'après la ref), lueur douce.
+   Ils s'OUVRENT quand ils apparaissent et se FERMENT quand ils disparaissent ; clignements de temps en temps. */
+const eyeMat=new THREE.MeshBasicMaterial({color:new THREE.Color(1.7,1.7,1.7),side:THREE.DoubleSide});
+// forme dessinée à plat (coins sur l'axe horizontal) puis inclinée : la fermeture se fait le long de l'œil
+const leaf=(()=>{const k=.055/169,sh=new THREE.Shape(),P=(x,y)=>[x*k,y*k];
+  sh.moveTo(...P(-168,0));sh.bezierCurveTo(...P(-100,63),...P(66,93),...P(170,0));sh.bezierCurveTo(...P(99,-68),...P(-71,-92),...P(-168,0));
+  return new THREE.ShapeGeometry(sh,28)})();
+const glowTex=(()=>{const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d"),g=x.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0,"rgba(255,255,255,.55)");g.addColorStop(.35,"rgba(255,255,255,.18)");g.addColorStop(1,"rgba(255,255,255,0)");x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
+const glowGeo=new THREE.PlaneGeometry(.17,.09),eyeGlows=[];
+const eyePairs=[];
+const qBedPlane=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0,0,-1),new THREE.Vector3(0,1,0),new THREE.Vector3(1,0,0)));
+function eyes(c,sp,sc,plane){const a=c,b=c;const g=new THREE.Group();g.userData={sp,sc:sc||1,plane,items:[],next:2+Math.random()*3,blink:0,open:0,target:0,c:c.clone()};
+  [a,b].forEach(p=>{const e=new THREE.Group();e.position.copy(p);
+    const tilt=new THREE.Group(),lid=new THREE.Mesh(leaf,eyeMat);tilt.add(lid);
+    const gm=new THREE.MeshBasicMaterial({map:glowTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0});
+    const glow=new THREE.Mesh(glowGeo,gm);glow.position.z=-.002;glow.renderOrder=2;eyeGlows.push(glow);
+    e.add(glow,tilt);e.userData={tilt,lid,glow};g.add(e);g.userData.items.push(e)});
+  g.visible=false;scene.add(g);eyePairs.push(g);return g}
+const camRight=new THREE.Vector3(),_vd=new THREE.Vector3(),_ax=new THREE.Vector3(),_up=new THREE.Vector3(),_z=new THREE.Vector3(0,0,1),_qz=new THREE.Quaternion();
+function blinkEyes(g,dt){const u=g.userData;
+  // ouverture / fermeture progressive (~0,5 s), le groupe n'est caché qu'une fois l'œil fermé
+  u.open+=Math.sign(u.target-u.open)*Math.min(Math.abs(u.target-u.open),dt/(u.target>u.open?.55:.4));
+  g.visible=u.open>.001;if(!g.visible)return;
+  camRight.set(1,0,0).applyQuaternion(cam.quaternion);
+  u.next-=dt;if(u.next<=0){u.blink=.16;u.next=2.5+Math.random()*4}
+  const bl=u.blink>0?Math.abs(u.blink-.08)/.08:1;u.blink=Math.max(0,u.blink-dt);
+  const o=u.open,ease=o*o*(3-2*o),lidY=Math.max(.02,ease*(.06+.94*bl));
+  // la paire suit l'ouverture (fente sous le lit, porte de l'armoire) : on penche toute la "tête" selon cet axe à l'écran
+  _vd.set(0,0,-1).applyQuaternion(cam.quaternion);
+  // comme sur la ref : deux yeux côte à côte, à l'horizontale à l'écran, symétriques
+  u.items.forEach((e,i)=>{const side=i?1:-1,d=e.userData;
+    if(u.plane){e.quaternion.copy(u.plane);e.position.copy(u.c);e.position.z-=side*u.sp/2;e.scale.setScalar(u.sc);}else{
+    e.quaternion.copy(cam.quaternion);e.position.copy(u.c).addScaledVector(camRight,side*u.sp/2);
+    // on garde les deux yeux sur le plan de l'ouverture (même profondeur que le centre), sans bouger à l'écran
+    e.position.addScaledVector(_vd,(u.c.x-e.position.x)/_vd.x);e.scale.setScalar(u.sc);}
+    d.tilt.rotation.z=(u.plane?.32:.51)*side;d.tilt.scale.x=-side;d.lid.scale.y=lidY;
+    d.glow.material.opacity=ease*(.35+.3*bl);d.glow.scale.set(1,.35+.65*lidY,1)});
+}
+const eyesPlacard=eyes(V(0.53,3.627,1.29),.11,.75);
+const eyesBed=eyes(V(2.56,1.68,0.175),.17,1.05,qBedPlane);
+/* ombre profonde sous le lit : un volume noir mat qui fait ressortir les yeux (retiré quand on éclaire de près) */
+const underShadow=new THREE.Mesh(new THREE.BoxGeometry(.86,.22,1.75),new THREE.MeshBasicMaterial({color:0x000000}));
+underShadow.position.copy(V(2.0,1.2,0.115));scene.add(underShadow);
+
+/* ---------- navigation : grille de 10 cm et A* ---------- */
+const N=50,CELL=.1;let grid=new Uint8Array(N*N);
+const blockedNames=/^(Sol_|Tapis|Mur_|Plinthe|Cimaise|Elisa_|Livre_sol|Jouet_cube|Jouet_ballon|Couloir|Fenetre|Rideau|Tringle|Porte_chambranle|INT_Porte|Sous_lit|Doudou|Punaise|Feuilles|Pot_|Crayon|Dessin|INT_Dessin)/;
+function blockBox(x0,y0,x1,y1,pad){pad=pad==null?.13:pad;for(let i=Math.max(0,Math.floor((x0-pad)/CELL));i<=Math.min(N-1,Math.floor((x1+pad)/CELL));i++)for(let j=Math.max(0,Math.floor((y0-pad)/CELL));j<=Math.min(N-1,Math.floor((y1+pad)/CELL));j++)grid[j*N+i]=1}
+function buildNav(){grid.fill(0);const bb=new THREE.Box3();
+  meshes.forEach(m=>{if(blockedNames.test(m.name))return;bb.setFromObject(m);if(bb.min.y>.45||bb.max.y-bb.min.y<.04)return;
+    blockBox(bb.min.x,-bb.max.z,bb.max.x,-bb.min.z)});
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){const x=(i+.5)*CELL,y=(j+.5)*CELL;if(x<.16||y<.16||x>4.84||y>4.84)grid[j*N+i]=1}
+  blockBox(.5,3.3,.9,3.85,.08); // porte de l’armoire ouverte
+  meshes.filter(m=>/^Bureau_plateau$/.test(m.name)).forEach(m=>{bb.setFromObject(m);blockBox(bb.min.x,-bb.max.z,bb.max.x,-bb.min.z,.12)}); // tout le bureau, plateau compris
+}
+function cellOf(x,y){return[Math.min(N-1,Math.max(0,Math.floor(x/CELL))),Math.min(N-1,Math.max(0,Math.floor(y/CELL)))]}
+function nearestFree(i,j){if(!grid[j*N+i])return[i,j];for(let r=1;r<15;r++)for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++){const a=i+di,b=j+dj;if(a>=0&&b>=0&&a<N&&b<N&&!grid[b*N+a])return[a,b]}return[i,j]}
+function astar(sx,sy,tx,ty){let[si,sj]=nearestFree(...cellOf(sx,sy)),[ti,tj]=nearestFree(...cellOf(tx,ty));
+  const key=(i,j)=>j*N+i,open=[[si,sj]],g=new Float32Array(N*N).fill(1e9),came=new Int32Array(N*N).fill(-1),f=new Float32Array(N*N).fill(1e9),inOpen=new Uint8Array(N*N);
+  g[key(si,sj)]=0;f[key(si,sj)]=Math.hypot(ti-si,tj-sj);inOpen[key(si,sj)]=1;
+  while(open.length){let bi=0;for(let k=1;k<open.length;k++)if(f[key(...open[k])]<f[key(...open[bi])])bi=k;const[ci,cj]=open.splice(bi,1)[0];const ck=key(ci,cj);inOpen[ck]=0;
+    if(ci===ti&&cj===tj){const path=[];let k=ck;while(k!==-1){path.push([(k%N+.5)*CELL,(Math.floor(k/N)+.5)*CELL]);k=came[k]}return smooth(path.reverse(),tx,ty)}
+    for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){if(!di&&!dj)continue;const ni=ci+di,nj=cj+dj;if(ni<0||nj<0||ni>=N||nj>=N||grid[key(ni,nj)])continue;
+      if(di&&dj&&(grid[key(ci+di,cj)]||grid[key(ci,cj+dj)]))continue;const nk=key(ni,nj),ng=g[ck]+(di&&dj?1.414:1);
+      if(ng<g[nk]){g[nk]=ng;came[nk]=ck;f[nk]=ng+Math.hypot(ti-ni,tj-nj);if(!inOpen[nk]){open.push([ni,nj]);inOpen[nk]=1}}}}
+  return null}
+function lineFree(a,b){const d=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.ceil(d/.05);for(let k=0;k<=n;k++){const x=a[0]+(b[0]-a[0])*k/n,y=a[1]+(b[1]-a[1])*k/n,[i,j]=cellOf(x,y);if(grid[j*N+i])return false}return true}
+function smooth(p,tx,ty){const last=p[p.length-1];const[ti,tj]=cellOf(tx,ty);if(!grid[tj*N+ti])last.splice(0,2,tx,ty);
+  const out=[p[0]];let i=0;while(i<p.length-1){let j=p.length-1;while(j>i+1&&!lineFree(p[i],p[j]))j--;out.push(p[j]);i=j}return out}
+
+/* ---------- état du jeu et horloge (tout s'arrête en pause) ---------- */
+const S={mode:"title",stretched:false,hasLamp:false,eyes:"none",monsters:false,saidBed:false,path:null,onArrive:null};
+let lampGlow=null,elisaGlow=null;
+let gt=0,paused=false;const timers=[],anims=[];
+function later(fn,ms){const t={at:gt+ms/1000,fn};timers.push(t);return t}
+function clearTimers(){timers.length=0;anims.length=0}
+function anim(dur,fn,done){anims.push({t0:gt,dur:Math.max(.001,dur/1000),fn,done})}
+function tickClock(dt){gt+=dt;
+  for(let i=timers.length-1;i>=0;i--){if(timers[i]&&timers[i].at<=gt){const t=timers.splice(i,1)[0];t.fn()}}
+  for(let i=anims.length-1;i>=0;i--){const a=anims[i];if(!a)continue;const k=Math.min(1,(gt-a.t0)/a.dur);a.fn(k);if(k>=1){anims.splice(anims.indexOf(a),1);a.done&&a.done()}}}
+const elisaXY=()=>[elisa.position.x,-elisa.position.z];
+const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+const D90=Math.PI/2;
+
+/* Elisa couchée dans son lit, tête vers la tête de lit, sous la couette */
+/* couchée sur le dos : la tête vers la tête de lit (-x), le visage vers le plafond */
+const qLie=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-1,0,0),new THREE.Vector3(0,0,1),new THREE.Vector3(0,1,0)));
+const qStand=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI/2,0));
+function setLying(){elisa.position.copy(V(2.15,1.25,0.68));elisa.quaternion.copy(qLie);elisa.scale.set(1,1,1);if(rig)rig.sit=0}
+/* elle s’assoit, glisse vers le long côté du lit, puis pose les pieds par terre */
+const setSit=v=>{if(rig)rig.sit=v};
+function sitUp(done){sheets();const p0=elisa.position.clone(),p1=V(2.36,1.2,0.45);
+  anim(1000,k=>{const e=ease(k);elisa.position.lerpVectors(p0,p1,e);elisa.position.y+=.05*Math.sin(k*Math.PI);elisa.quaternion.slerpQuaternions(qLie,qStand,e);setSit(Math.min(1,k*1.4))},
+    ()=>{elisa.rotation.set(0,Math.PI/2,0);setSit(1);done&&done()})}
+function getDown(done){const p1=elisa.position.clone(),p2=V(2.82,1.2,0);
+  anim(650,k=>{const e=ease(k);elisa.position.lerpVectors(p1,p2,e);elisa.position.y=p1.y*(1-e)+.05*Math.sin(k*Math.PI);setSit(1-e)},()=>{setSit(0);step();done&&done()})}
+function standUp(done){sitUp(()=>later(()=>getDown(done),500))}
+
+function placardDoor(angleDeg,ms){const p=nodes.PIV_Placard_porte;if(!p)return;const from=p.rotation.y,to=THREE.MathUtils.degToRad(angleDeg);anim(ms||1600,k=>p.rotation.y=from+(to-from)*ease(k))}
+function drawer(open){const p=nodes.PIV_Tiroir_bureau;if(!p)return;if(p._x==null)p._x=p.position.x;const from=p.position.x,to=p._x+(open?.32:0);anim(500,k=>p.position.x=from+(to-from)*ease(k))}
+function roomDoor(open,ms){const p=nodes.PIV_Porte_couloir;if(!p)return;if(open)doorSnd();const from=p.rotation.y,to=open?-1.35:0;anim(ms||900,k=>p.rotation.y=from+(to-from)*ease(k))}
+/* aberration chromatique : impulsions sur les moments effrayants, qui retombent doucement */
+let caLevel=0,caHold=0;
+function caPulse(v){caLevel=Math.max(caLevel,v);if(v>=.45)glitchDom()}
+function glitchDom(){document.body.classList.remove("glitch");void document.body.offsetWidth;document.body.classList.add("glitch");clearTimeout(glitchDom.t);glitchDom.t=setTimeout(()=>document.body.classList.remove("glitch"),520)}
+function caTick(dt){caLevel=Math.max(caHold,caLevel-dt*.9);const v=REDUCE?caLevel*.3:caLevel;
+  postMat.uniforms.ca.value=v;postMat.uniforms.gl.value=Math.max(0,Math.min(1,(caLevel-.3)*1.3))*(REDUCE?0:1);const px=(v*9).toFixed(1);document.body.classList.toggle("ca-on",v>.02);
+  if(v>.02){$("caR").setAttribute("dx",px);$("caB").setAttribute("dx",-px)}}
+function setEyes(where){if(where!=="none"&&where!==S.eyes)caPulse(.5);S.eyes=where;eyesPlacard.userData.target=where==="placard"?1:0;eyesBed.userData.target=where==="bed"?1:0}
+
+/* ---------- objets interactifs ---------- */
+const hot=[];let hotGroup=new THREE.Group();scene.add(hotGroup);
+function hotspot(id,verb,box,reach,act){const[x0,y0,z0,x1,y1,z1]=box;const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,z1-z0,y1-y0),new THREE.MeshBasicMaterial());
+  m.position.copy(V((x0+x1)/2,(y0+y1)/2,(z0+z1)/2));m.visible=false;m.userData={id,verb,box,reach,act,center:V((x0+x1)/2,(y0+y1)/2,z1)};hotGroup.add(m);hot.push(m)}
+function distToHot(h){const b=h.userData.box,[x,y]=elisaXY();return Math.hypot(Math.max(b[0]-x,0,x-b[3]),Math.max(b[1]-y,0,y-b[4]))}
+function buildHotspots(){
+  hotspot("lit","Go back to bed",[1.5,0.2,0.25,2.5,2.2,0.7],.6,h=>focusObj(h,{k:"My bed",t:"No. I want Mommy.",zoom:1.7,mood:"non"}));
+  hotspot("souslit","Look under the bed",[2.35,0.3,0,2.65,2.1,0.28],.6,()=>inspect("souslit",hot.find(h=>h.userData.id==="souslit")));
+  hotspot("bureau","Open the drawer",[0.15,0.4,0.5,0.8,1.9,0.8],.6,h=>focusObj(h,{k:"The desk drawer",zoom:2.3,mood:S.hasLamp?"bof":"",
+    // l'illustration du tiroir : un clic sur la lampe la fait disparaître (Elisa la prend)
+    img:{src:"tiroir.webp",alt:"The open drawer: a flashlight on sheets of paper, pencils, scissors, a ruler, cracked glasses, marbles and a notebook with Elisa’s name.",
+      after:"tiroir_vide.webp",afterAlt:"The same drawer, without the flashlight.",taken:S.hasLamp,
+      take:set=>{takeLamp();set("The flashlight. Now I’m not scared anymore.",[])}},
+    t:S.hasLamp?"The drawer. No more flashlight.":"My flashlight is in here, at the back of the drawer.",
+    onOpen:()=>{drawer(true);drawerSnd()},onClose:()=>{drawer(false);if(AC&&!sfx("tiroir_ferme",{vol:.85}))drawerSnd()}}));
+  hotspot("dessin","Look at the drawing",[0,0.8,1.1,0.12,1.35,1.8],1.0,h=>focusObj(h,{zoom:2.3,after:()=>{$("s-drawing").hidden=false;$("b-dclose").focus({preventScroll:true})}}));
+  hotspot("placard","Open the wardrobe",[0,3.34,0,0.55,4.46,2.0],.6,()=>inspect("placard",hot.find(h=>h.userData.id==="placard")));
+  hotspot("fenetre","Look outside",[0,2.2,1.0,0.15,3.0,2.1],1.0,h=>focusObj(h,{k:"The window",t:"The moon. The garden is pitch black.",zoom:2.2,mood:"bof"}));
+  hotspot("doudou","Take Bunny",[1.68,0.72,0.55,2.02,1.08,0.98],.95,h=>focusObj(h,{k:"Bunny",t:"Bunny is still asleep. I’ll be right back.",zoom:2.6}));
+  hotspot("coffre","Search the toy chest",[3.8,4.0,0,4.6,4.8,0.8],.6,h=>focusObj(h,{k:"The toy chest",t:"My toys. Nothing that helps tonight.",zoom:2.2,mood:"bof"}));
+  hotspot("etagere","Look at the plushies",[4.5,0.12,0,5.0,0.48,1.4],.7,h=>focusObj(h,{k:"The plushies",t:"They always watch me at night.",zoom:2.3,mood:"bof"}));
+  hotspot("porte","Go out into the hallway",[3.5,0,0,4.5,0.2,2.1],.6,()=>{
+    if(!S.hasLamp)return endDark();endCorridor()});
+}
+
+function lookAt(p){const ry=elisa.rotation.y,dx=p.x-elisa.position.x,dz=p.z-elisa.position.z,l=Math.hypot(dx,dz)||1;return(Math.sin(ry)*dx+Math.cos(ry)*dz)/l}
+
+/* ---------- regarder de près : gros plan sur le placard ou sous le lit ---------- */
+let camBase=null,camTgt=null;
+function camZoom(center,inn,done,zoomTo,ms){if(!camBase){camBase=cam.position.clone();camTgt=target.clone()}
+  const from=cam.zoom,to=inn?(zoomTo||2.6):1,p0=cam.position.clone(),p1=inn?camBase.clone().add(center.clone().sub(camTgt)):camBase.clone();
+  anim(ms||(inn?900:700),k=>{const e=ease(k);cam.zoom=from+(to-from)*e;cam.position.lerpVectors(p0,p1,e);cam.updateProjectionMatrix()},done)}
+function inspect(id,h){heart(66,0);musicLevel(.4,.8);
+  // fondu au noir lent, dès le clic, pendant le zoom
+  const bg=$("popbg");bg.style.transition="opacity 1.4s ease-in";bg.classList.add("on");S.mode="busy";S.path=null;walking=false;faceTo(h.userData.center);aimPt.copy(h.userData.center);
+  camZoom(h.userData.center,true,()=>{
+    if(!S.hasLamp)return scarePop(id);
+    S.monsters=false;setEyes("none");if(id==="souslit")underShadow.visible=false;
+    const pl=id==="placard";
+    later(()=>{
+      showPop(pl?"The wardrobe":"Under the bed","",null,()=>camZoom(null,false,()=>{S.mode="play"},0,450),
+        pl?{src:"armoire_monstre.webp",fade:true,delay:500,alt:"In the half-open wardrobe, a hooded figure with glowing white eyes.",
+            after:"armoire_lampe.webp",afterAlt:"The wardrobe lit by the flashlight: coats, a hooded coat, a hat on the shelf, boots."}
+          :{src:"lit_monstre.webp",fade:true,delay:500,alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room.",
+            after:"lit_lampe.webp",afterAlt:"Under the bed, lit by the flashlight: a drum, a xylophone, two springs, marbles, a little train, crayons."},true,"bof");
+      // une demi-seconde dans le noir… puis clic de la lampe, la lumière révèle ce que c’était vraiment
+      later(()=>heartTo(150,900),900);
+      later(()=>{torchOn();stopHeart();musicLevel(1,1.5);const fg=$("pop-fig");fg.classList.add("flash","taken");$("pop").dataset.lock="";
+        later(()=>setPopBody(pl?"Just coats. And Daddy’s hat.":"Just my toys. The drum, the marbles, my old train.",[]),350)},1800)},300)},2.6,600)}
+/* sans la lampe : le monstre apparaît dans le pop-up, fixe l’enfant, puis se jette sur elle */
+function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=id==="placard";musicLevel(.25,.4);later(()=>heartTo(170,1300),2200);
+  showPop(pl?"The wardrobe":"Under the bed","",null,null,
+    pl?{src:"armoire_monstre.webp",fade:true,fadeS:2.1,delay:800,eyes:"44.5% 26%",alt:"In the half-open wardrobe, a hooded figure with glowing white eyes."}
+      :{src:"lit_monstre.webp",fade:true,fadeS:2.1,delay:800,eyes:"41% 28.5%",alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room."},true);
+  // fondu (0,8 s), un temps très court… puis gros plan éclair sur les yeux
+  // coupure franche sur le monstre en plein écran, avec son cri
+  later(()=>{caPulse(1.6);if(!(AC&&sfx(pl?"sursaut_armoire":"sursaut_lit")))stinger();const sc=$("scare");$("scare-img").src=pl?"sursaut_armoire.webp":"sursaut_lit.webp";sc.classList.add("on");const P=$("pop");P.dataset.lock="";P.classList.remove("on","lunge");const bg=$("popbg");bg.style.transition="";bg.classList.remove("on")},3600);
+  later(()=>{stopHeart();$("scare").classList.remove("on");ending(id)},4150)}
+/* ---------- tous les objets : zoom rapide, puis un pop-up qui s’ouvre ---------- */
+let popOnClose=null;
+let popMood="";
+function showPop(k,t,actions,onClose,img,lock,mood){popMood=mood||"";if(!(lock&&!(img&&img.after)))(mood==="non"?humNope:humIn)();const P=$("pop");P.classList.remove("lunge");P.dataset.lock=lock?"1":"";$("pop-k").textContent=k;const fg=$("pop-fig"),tk=$("pop-take");fg.hidden=!img;fg.classList.add("noanim");fg.classList.remove("taken","flash","fadein","lunge");void fg.offsetWidth;fg.classList.remove("noanim");fg.style.removeProperty("--eyes");if(img&&img.eyes)fg.style.setProperty("--eyes",img.eyes);fg.style.setProperty("--fade",(img&&img.fadeS||.8)+"s");tk.hidden=true;tk.onclick=null;
+  if(img){$("pop-img").src=img.src;$("pop-img").alt=img.alt;$("pop-img2").src=img.after||"";$("pop-img2").alt=img.afterAlt||"";
+    if(img.taken)fg.classList.add("taken");if(img.take&&!img.taken){tk.hidden=false;tk.onclick=()=>{tk.hidden=true;fg.classList.add("taken");img.take(setPopBody)}}}
+  $("pop").classList.toggle("big",!!img);popOnClose=onClose;setPopBody(t,actions);
+  // d'abord le fond noir (pour les monstres : un vrai fondu au noir), puis l'image
+  $("popbg").classList.add("on");
+  const open=()=>{if(img&&img.fade){void fg.offsetWidth;fg.classList.add("fadein")}$("pop").classList.add("on");const b=$("pop-a").querySelector("button");b&&b.focus({preventScroll:true})};
+  const d=(img&&img.delay)||0;if(d)later(open,d);else requestAnimationFrame(open)}
+function setPopBody(t,actions){const pt=$("pop-t");pt.hidden=!t;typeText(pt,t,38);$("pop-cap").classList.toggle("empty",!t);const a=$("pop-a");a.innerHTML="";if($("pop").dataset.lock)return;
+  (actions||[]).forEach(x=>{const b=document.createElement("button");b.type="button";b.className="btn primary";b.textContent=x.label;b.onclick=()=>x.fn(setPopBody);a.appendChild(b)});
+  const c=document.createElement("button");c.type="button";c.className="btn";c.textContent=(actions&&actions.length)?"Leave it":"Close";c.onclick=closePop;a.appendChild(c)}
+function popOpen(){return $("pop").classList.contains("on")}
+function closePop(){if(!popOpen()||$("pop").dataset.lock)return;humOut(popMood);const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");$("pop").classList.remove("on");const f=popOnClose;popOnClose=null;later(()=>f&&f(),120)}
+function focusObj(h,o){const bg=$("popbg");bg.style.transition="opacity .8s ease-in";bg.classList.add("on");S.mode="busy";S.path=null;walking=false;hideChip();canvas.style.cursor="default";faceTo(h.userData.center);aimPt.copy(h.userData.center);
+  o.onOpen&&o.onOpen();
+  camZoom(h.userData.center,true,()=>{if(o.after)return o.after();
+    showPop(o.k,o.t,o.actions,()=>{o.onClose&&o.onClose();camZoom(null,false,()=>{if(S.mode==="busy")S.mode="play"},0,420)},o.img?Object.assign({delay:200},o.img):null,false,typeof o.mood==="function"?o.mood():o.mood)},o.zoom||2.1,750)}
+function preloadArt(){["sursaut_lit","sursaut_armoire","tiroir","tiroir_vide","lit_lampe","lit_monstre","armoire_lampe","armoire_monstre"].forEach(n=>new Image().src=n+".webp")}  // préchargée : le pop-up s’ouvre sans attendre
+function takeLamp(){S.hasLamp=true;if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=false;click();torch.intensity=55;$("inv").classList.add("on")}
+function closeDrawing(){if($("s-drawing").hidden)return;$("s-drawing").hidden=true;const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");camZoom(null,false,()=>{S.mode="play";think("The path to the doghouse. Did I draw that?")},0,420)}
+
+/* ---------- curseur « œil » au survol des endroits à fouiller (pas le lit, pas la porte) ---------- */
+const SEARCH=["bureau","dessin","placard","souslit","fenetre","coffre","etagere"];
+const EYE_CURSOR='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="22" viewBox="0 0 100 60"><path d="M3 30 Q50 -16 97 30 Q50 76 3 30Z" fill="#f2f2f2" stroke="#000" stroke-width="4"/><circle cx="50" cy="30" r="19" fill="#0a0a0a"/><circle cx="50" cy="30" r="9.5" fill="#f2f2f2"/></svg>')+'") 18 11, pointer';
+
+/* ---------- histoire ---------- */
+let wakeIris=false;const _ip=new THREE.Vector3();
+function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
+  C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
+function prologue(first){caHold=0;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
+  if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
+  setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.path=null;S.onArrive=null;
+  if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");
+  if(nodes.PIV_Placard_porte)nodes.PIV_Placard_porte.rotation.y=0;if(nodes.PIV_Tiroir_bureau&&nodes.PIV_Tiroir_bureau._x!=null)nodes.PIV_Tiroir_bureau.position.x=nodes.PIV_Tiroir_bureau._x;
+  if(nodes.PIV_Porte_couloir)nodes.PIV_Porte_couloir.rotation.y=0;elisa.visible=true;
+  hemi.intensity=.32;moon.intensity=3.4;nightBase=.9;$("closing").style.opacity=0;
+  $("dark").style.transition="none";$("dark").style.opacity=1;
+  droneLevel(.0,.1);
+  const t1=first?700:300,C=$("closing");
+  later(()=>cry(),t1);
+  // elle se réveille en sursaut : un cercle serré sur elle et le lit, puis le noir se retire peu à peu
+  later(()=>{gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
+    $("dark").style.transition="none";$("dark").style.opacity=0;droneLevel(.55,2);
+    later(()=>think(first?"…That nightmare again. Mommy?":"…Mommy?",3400),500);
+    later(()=>anim(3800,k=>{const e=k*k*(3-2*k);C.style.setProperty("--r",(4+86*e)+"%");C.style.setProperty("--soft",(9+30*e)+"%")},
+      ()=>{wakeIris=false;C.style.opacity=0;C.style.setProperty("--soft","18%");C.style.setProperty("--cx","50%");C.style.setProperty("--cy","55%")}),900);
+    later(()=>{if(!S.stretched)endParalysis()},9000)},t1+650);
+}
+function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hideChip();
+  sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play";
+    later(()=>{creak();placardDoor(-50,1800);later(()=>whisper2(),1700);later(()=>{S.monsters=true;setEyes("placard");think("There’s something in the wardrobe…")},1300)},2200)}),450)))}
+/* ---------- paralysie du sommeil : une ombre-main qui rampe au sol, grimpe le pied du lit et avance sur la couette ----------
+   Une bande de géométrie épouse le trajet (sol -> face du pied de lit -> dessus -> couette). Le shader y dessine,
+   d'après la distance parcourue, une masse noire aux bords mouvants et cinq longs doigts effilés qui ondulent. */
+const crawl=(()=>{const path=[[3.95,.008],[2.275,.008],[2.275,.64],[2.17,.64],[2.12,.6],[1.75,.6],[1.45,.84],[.32,.84]];
+  const pts=[];let acc=0;for(let i=0;i<path.length-1;i++){const[a,b]=[path[i],path[i+1]],L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(2,Math.ceil(L/.025));
+    for(let k=(i?1:0);k<=n;k++){const f=k/n;pts.push([a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,acc+L*f])}acc+=L}
+  const U0=1.46,U1=2.54,NU=44,pos=[],sA=[],uA=[],idx=[];
+  pts.forEach(([y,z,sv])=>{for(let j=0;j<=NU;j++){const u=U0+(U1-U0)*j/NU,v=V(u,y,z);pos.push(v.x,v.y,v.z);sA.push(sv);uA.push(u)}});
+  for(let i=0;i<pts.length-1;i++)for(let j=0;j<NU;j++){const a=i*(NU+1)+j,b=a+NU+1;idx.push(a,b,a+1,b,b+1,a+1)}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("aS",new THREE.Float32BufferAttribute(sA,1));
+  g.setAttribute("aU",new THREE.Float32BufferAttribute(uA,1));g.setIndex(idx);
+  const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,
+    uniforms:{F:{value:0},time:{value:0},op:{value:0}},
+    vertexShader:"attribute float aS,aU;varying float vS,vU;void main(){vS=aS;vU=aU;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+    fragmentShader:`uniform float F,time,op;varying float vS,vU;
+    float h(float x){return fract(sin(x*127.1)*43758.5453);}
+    float nz(float x){float i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(h(i),h(i+1.),f);}
+    float cx(float s){return mix(2.28,2.15,smoothstep(1.2,3.2,s));}
+    void main(){float FL=.8,base=F-FL,a=0.,c=cx(vS);
+      // la masse : large, bords qui bouillonnent, se resserre en paume avant les doigts
+      float w=.34+.09*nz(vS*7.+time*.8)+.05*sin(vS*11.-time*1.3);w*=mix(1.,.62,smoothstep(base-.35,base+.05,vS));
+      float bd=abs(vU-c)-w;if(vS<base+.06){a=max(a,1.-smoothstep(-.015,.015,bd));a=max(a,.5*(1.-smoothstep(0.,.22,bd)));}
+      // un halo d'ombre devant la masse, pour qu'elle se lise aussi sur le sol sombre
+      a=max(a,.35*(1.-smoothstep(0.,.25,abs(vU-c)-.25))*smoothstep(base+.9,base,vS)*step(vS,base+.9)*step(0.,base));
+      // cinq doigts : longs, effilés, qui s'écartent puis se resserrent et ondulent comme des vrilles
+      for(int k=0;k<5;k++){float fk=float(k)-2.,len=FL*(1.-.16*abs(fk)),q=(vS-base)/len;
+        if(q<0.||q>1.)continue;
+        float off=fk*(.055+.07*sin(q*2.6))+.035*sin(q*7.+fk*1.9-time*2.2)*q;
+        float fw=.052*pow(1.-q,.8)*(1.-.12*abs(fk))+.003;
+        float fd=abs(vU-(c+off))-fw;a=max(a,1.-smoothstep(-.008,.008,fd));a=max(a,.4*(1.-smoothstep(0.,.05,fd))*(1.-q));}
+      a*=smoothstep(.0,.7,vS); // la queue se perd dans le noir de la pièce
+      a*=op;if(a<.01)discard;gl_FragColor=vec4(0.,0.,0.,a);}`});
+  const mesh=new THREE.Mesh(g,m);mesh.renderOrder=1;mesh.visible=false;scene.add(mesh);eyeGlows.push(mesh);
+  return{mesh,m,length:acc}})();
+function endParalysis(){S.mode="busy";hideChip();think("I can’t move.",3000);heart(64);droneLevel(.9,1.5);
+  const C=$("closing");crawl.mesh.visible=true;crawl.m.uniforms.op.value=1;
+  const reach=crawl.length-.1-.2; // les doigts remontent sur elle jusqu'à son visage, la masse la recouvre
+  anim(7000,k=>{caHold=k*.9;const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;crawl.m.uniforms.F.value=.2+e*reach;crawl.m.uniforms.time.value=gt;
+    if(k>.55){const v=(k-.55)/.45;C.style.setProperty("--r",(70-62*v)+"%");C.style.opacity=Math.min(1,v*1.3)}},
+    ()=>{crawl.mesh.visible=false;ending("paralysie")})}
+function scare(id){S.mode="busy";hideChip();follow=null;stinger();const s=$("scare");s.classList.add("on");later(()=>{s.classList.remove("on");ending(id)},1100)}
+function endDark(){S.mode="busy";hideChip();follow=null;roomDoor(true);
+  walkTo(4.0,-0.6,()=>{elisa.visible=false;think("The hallway is pitch black…",3500);heart(80);droneLevel(1,1);
+    anim(4800,k=>{caHold=k*.7;hemi.intensity=.32*(1-k);moon.intensity=3.4*(1-k);nightBase=.9*(1-k);$("closing").style.setProperty("--r",(70-65*k)+"%");$("closing").style.opacity=k},()=>ending("noir"))})}
+function endCorridor(){S.mode="busy";hideChip();follow=null;roomDoor(true);
+  walkTo(4.0,-0.6,()=>{elisa.visible=false;think("The flashlight lights up the hallway. At the end, a portrait…",3800);
+    anim(3000,k=>{$("dark").style.opacity=k},()=>ending("couloir"))})}
+function ending(id){caHold=0;caPulse(1.2);if(AC)sfx("cri_fin",{vol:.9});stopHeart();musicLevel(.5,1.5);droneLevel(.25,1);const e=ENDINGS.find(x=>x.id===id);found.add(id);saveFound();
+  $("end-n").textContent=e.n;$("end-t").textContent=e.t;
+  $("end-s").textContent=id==="couloir"?`End of the prototype. Endings found: ${[...found].filter(x=>x!=="couloir").length} of 4.`:"Elisa wakes up with a start.";
+  $("b-again").textContent="Wake up";$("s-end").hidden=false;S.mode="ending"}
+$("b-again").onclick=()=>{$("s-end").hidden=true;prologue(false)};
+function toTitle(){paused=false;["s-pause","s-end","s-journal","s-drawing"].forEach(x=>$(x).hidden=true);$("pop").classList.remove("on");$("popbg").classList.remove("on");$("scare").classList.remove("on");
+  clearTimers();stopHeart();caHold=0;crawl.mesh.visible=false;setEyes("none");S.mode="title";S.path=null;walking=false;
+  if(AC){try{AC.resume()}catch(e){}}musicLevel(.6,1);droneLevel(.2,1);$("thought").classList.remove("on");
+  $("dark").style.transition="opacity .6s";$("dark").style.opacity=1;$("closing").style.opacity=0;$("b-pause").hidden=true;$("turn").hidden=true;$("s-title").hidden=false;
+  const b=$("b-start");b.textContent="Start";b.focus({preventScroll:true})}
+$("b-ptitle").onclick=toTitle;
+/* écran titre en parallaxe : carte de profondeur (branches devant, voiture et lampadaire, maison, brouillard au fond).
+   L'image se décale selon la profondeur de chaque point, en suivant doucement la souris. */
+const titleFX=(()=>{const cv=$("title-gl");let r;try{r=new THREE.WebGLRenderer({canvas:cv,antialias:false})}catch(e){return null}
+  r.setPixelRatio(Math.min(devicePixelRatio,2));const sc=new THREE.Scene(),cm=new THREE.OrthographicCamera(-1,1,1,-1,0,1),tl=new THREE.TextureLoader();
+  const tex=n=>{const t=tl.load(n,()=>{frame.k=""});t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;return t};
+  const u={tA:{value:tex("titre_allume.webp")},tB:{value:tex("titre_eteint.webp")},tD:{value:tex("titre_profondeur.webp")},m:{value:new THREE.Vector2()},lit:{value:1},asp:{value:1}};
+  sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:u,depthTest:false,
+    vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+    fragmentShader:`uniform sampler2D tA,tB,tD;uniform vec2 m;uniform float lit,asp;varying vec2 vUv;
+    void main(){float ai=1.7917;vec2 uv=vUv;if(asp>ai)uv.y=(uv.y-.5)*ai/asp+.5;else uv.x=(uv.x-.5)*asp/ai+.5;
+      uv=(uv-.5)/1.07+.5;                                   // marge pour que les bords ne se voient jamais
+      float d=texture2D(tD,uv).r;vec2 o=m*(d-.3)*.03;d=texture2D(tD,uv+o).r;o=m*(d-.3)*.03;uv+=o;
+      // aberration chromatique qui suit la parallaxe : plus forte sur les plans proches, dans le sens de la souris
+      vec2 ab=m*(.0012+max(d-.3,0.)*.0075);
+      float cr=mix(texture2D(tB,uv+ab).r,texture2D(tA,uv+ab).r,lit),cg=mix(texture2D(tB,uv).g,texture2D(tA,uv).g,lit),cb=mix(texture2D(tB,uv-ab).b,texture2D(tA,uv-ab).b,lit);
+      gl_FragColor=vec4(cr,cg,cb,1.);}`})));
+  let tgt=new THREE.Vector2(),cur=new THREE.Vector2(),on=false,t0=performance.now();
+  addEventListener("pointermove",e=>{if(e.pointerType==="mouse")tgt.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight*2-1))});
+  function size(){r.setSize(innerWidth,innerHeight,false);u.asp.value=innerWidth/innerHeight}addEventListener("resize",size);size();
+  function frame(now){if(!$("s-title").hidden){
+      if(TOUCH)tgt.set(Math.sin(now/3200)*.5,Math.sin(now/4100)*.3); // écrans tactiles : une lente dérive
+      cur.lerp(tgt,.06);if(REDUCE)cur.set(0,0);
+      // on ne redessine que si l'image a changé (souris, lampadaire, taille)
+      const key=cur.x.toFixed(4)+cur.y.toFixed(4)+u.lit.value+u.asp.value;if(key!==frame.k||frame.n<120){frame.k=key;frame.n=(frame.n||0)+1;u.m.value.copy(cur);r.render(sc,cm)}}
+    requestAnimationFrame(frame)}
+  cv.hidden=false;document.querySelectorAll("#s-title img.bg").forEach(i=>i.style.visibility="hidden");requestAnimationFrame(frame);
+  return u})();
+function setLit(v){$("title-lit").classList.toggle("off",!v);if(titleFX)titleFX.lit.value=v?1:0}
+/* le lampadaire de l'écran titre : allumé la plupart du temps, il grésille par moments (jamais en stroboscope) */
+(function flicker(){const L=$("title-lit"),T=$("s-title");
+  const next=()=>setTimeout(run,2500+Math.random()*5500);
+  function run(){if(T.hidden){next();return}
+    const reduce=REDUCE;
+    const seq=reduce?[[1,500]]:(Math.random()<.25?[[1,90],[0,110],[1,1100],[0,160]]:[[1,80],[0,90],[1,70],[0,140],[1,60]].slice(0,2+Math.floor(Math.random()*4)));
+    let t=0;seq.forEach(([off,d])=>{setTimeout(()=>setLit(!off),t);t+=d});
+    setTimeout(()=>{setLit(true);next()},t+40)}
+  next()})();$("b-etitle").onclick=toTitle;
+$("b-start").onclick=()=>{if(!ready)return;audioInit();$("s-title").hidden=true;$("b-pause").hidden=false;$("turn").hidden=false;prologue(true)};
+
+/* ---------- pause ---------- */
+function setPause(on){if(on&&!["play","wake","busy"].includes(S.mode))return;paused=on;$("s-pause").hidden=!on;
+  if(AC){try{on?AC.suspend():AC.resume()}catch(e){}}if(on){hideChip();follow=null}}
+$("b-pause").onclick=()=>setPause(!paused);
+$("b-resume").onclick=()=>setPause(false);
+$("b-pjournal").onclick=()=>{renderJournal();$("s-journal").hidden=false};
+$("b-restart").onclick=()=>{setPause(false);prologue(false)};
+function sketchLabel(){$("b-sketch").textContent="Drawing effect: "+(sketchOn?"on":"off")}sketchLabel();
+$("b-sketch").onclick=()=>{sketchOn=!sketchOn;postMat.uniforms.on.value=sketchOn?1:0;sketchLabel();try{localStorage.setItem("elisa-croquis",sketchOn?"1":"0")}catch(e){}};
+
+/* ---------- déplacement : clic pour aller quelque part, rotation sur place ---------- */
+let follow=null,pending=null,walking=false,turn=0,walkPhase=0,rig=null;
+let stepAcc=0;
+function stepSound(dt){stepAcc+=dt;if(stepAcc>.34){stepAcc=0;step()}}
+const SPEED=1.2;   // une enfant de 0,85 m : pas pressé, mais pas lent
+function heading(){return elisa.rotation.y}
+function faceTo(p){const dx=p.x-elisa.position.x,dz=p.z-elisa.position.z;if(Math.hypot(dx,dz)>.01)elisa.rotation.y=Math.atan2(dx,dz)}
+function goTo(x,y,h){const[sx,sy]=elisaXY();let p=astar(sx,sy,x,y);
+  if(!p||p.length<2){S.path=null;if(h)arrive(h);return}
+  S.path=p.slice(1);S.onArrive=h?()=>arrive(h):null}
+function arrive(h){faceTo(h.userData.center);aimPt.copy(h.userData.center);
+  if(distToHot(h)<=h.userData.reach+.15)h.userData.act(h);else{humNope();think("I can’t reach that.",2200)}}
+/* trajets scriptés (sortie par la porte) */
+function walkTo(x,y,done){const[sx,sy]=elisaXY();const p=(astar(sx,sy,Math.min(x,4.6),Math.max(y,.3))||[[sx,sy]]);p.push([x,y]);S.path=p.slice(1);S.onArrive=done||null}
+function pathMove(dt){if(!S.path||!S.path.length)return;const[tx,ty]=S.path[0],[x,y]=elisaXY(),dx=tx-x,dy=ty-y,d=Math.hypot(dx,dy),sp=SPEED*dt;walking=true;
+  if(d<=sp){elisa.position.x=tx;elisa.position.z=-ty;S.path.shift();if(!S.path.length){S.path=null;walking=false;const f=S.onArrive;S.onArrive=null;f&&f()}}
+  else{elisa.position.x+=dx/d*sp;elisa.position.z-=dy/d*sp;
+    const target=Math.atan2(dx,-dy);let da=target-elisa.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));elisa.rotation.y+=da*Math.min(1,dt*12)}
+  stepSound(dt)}
+/* jambes et bras qui balancent pendant la marche */
+function animateRig(dt){if(!rig)return;
+  if(walking)walkPhase+=dt*10.8;const amp=walking?1:0;rig.amp+=(amp-rig.amp)*Math.min(1,dt*10);
+  const s=Math.sin(walkPhase)*rig.amp;
+  const sit=rig.sit||0;rig.legL.rotation.x=s*.55-sit*1.45;rig.legR.rotation.x=-s*.55-sit*1.45;rig.armL.rotation.x=-s*.3;rig.armR.rotation.x=s*.3;
+  rig.body.position.y=Math.abs(Math.sin(walkPhase))*.012*rig.amp}
+
+/* ---------- pointeur ---------- */
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2(),floor=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+let aimPt=V(2.5,2.5,0.4);
+function setPtr(e){const r=canvas.getBoundingClientRect();ptr.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(ptr,cam)}
+function pickHot(){const h=ray.intersectObjects(hot,false);return h.length?h[0].object:null}
+function floorPoint(){const p=new THREE.Vector3();if(!ray.ray.intersectPlane(floor,p))return null;return[Math.min(4.9,Math.max(.1,p.x)),Math.min(4.9,Math.max(.1,-p.z))]}
+/* le regard (et la lampe) suit la souris */
+let lookPt=null;
+canvas.addEventListener("pointermove",e=>{setPtr(e);if(paused||S.mode!=="play"||e.pointerType!=="mouse")return;
+  const lp=new THREE.Vector3();if(ray.ray.intersectPlane(floor,lp))lookPt=lp;
+  updCursor()});
+const NEAR=1.1;   // distance (m) sous laquelle l’œil invite à regarder
+let ptrIn=false;canvas.addEventListener("pointerenter",()=>ptrIn=true);
+let curKey="";function updCursor(){const ck=ptr.x.toFixed(3)+ptr.y.toFixed(3)+elisa.position.x.toFixed(2)+elisa.position.z.toFixed(2)+S.mode+paused;if(ck===curKey)return;curKey=ck;if(!ptrIn||paused||S.mode!=="play"){canvas.style.cursor="default";return}
+  // aucun changement de curseur tant qu’Elisa n’est pas tout près : pas d’indice à distance
+  const h=pickHot();canvas.style.cursor=h&&distToHot(h)<=NEAR?(SEARCH.includes(h.userData.id)?EYE_CURSOR:"pointer"):"default"}
+canvas.addEventListener("pointerleave",()=>{ptrIn=false;hideChip();canvas.style.cursor="default"});
+canvas.addEventListener("pointerdown",e=>{setPtr(e);if(paused)return;
+  if(popOpen()){closePop();return}
+  if(S.mode==="wake"){stretch();return}
+  if(S.mode!=="play")return;const h=pickHot();
+  if(h){hideChip();if(distToHot(h)<=h.userData.reach){S.path=null;walking=false;arrive(h);return}
+    const b=h.userData.box,[x,y]=elisaXY();goTo(Math.min(b[3],Math.max(b[0],x)),Math.min(b[4],Math.max(b[1],y)),h);return}
+  const p=floorPoint();if(p)goTo(p[0],p[1],null)});
+chip.addEventListener("click",()=>{if(S.mode==="wake"&&!paused)stretch()});
+/* tourner sur place : flèches gauche/droite, Q/D, ou les boutons à l’écran */
+const keys=new Set();
+addEventListener("keydown",e=>{
+  if(e.key==="Escape"||e.key==="p"||e.key==="P"){
+    if(popOpen()){closePop();return}
+    if(!$("s-drawing").hidden){closeDrawing();return}
+    if(!$("s-journal").hidden){$("s-journal").hidden=true;return}
+    setPause(!paused);return}
+  if(["ArrowLeft","ArrowRight","q","Q","a","A","d","D"].includes(e.key)){keys.add(e.key.toLowerCase());e.preventDefault()}});
+addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
+addEventListener("blur",()=>{keys.clear();turn=0;setPause(true)});
+[["b-tl",1],["b-tr",-1]].forEach(([id,dir])=>{const b=$(id);
+  b.addEventListener("pointerdown",e=>{e.preventDefault();turn=dir;b.setPointerCapture(e.pointerId)});
+  ["pointerup","pointercancel","lostpointercapture"].forEach(ev=>b.addEventListener(ev,()=>{if(turn===dir)turn=0}))});
+function turning(dt){let t=turn;if(keys.has("arrowleft")||keys.has("q")||keys.has("a"))t=1;if(keys.has("arrowright")||keys.has("d"))t=-1;
+  if(!t||S.mode!=="play")return;lookPt=null;S.path=null;S.onArrive=null;walking=false;elisa.rotation.y+=t*2.4*dt}
+
+/* ---------- boucle ---------- */
+let last=performance.now();
+function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
+  if(ready&&!paused){tickClock(dt);walking=false;
+    turning(dt);if(S.path)pathMove(dt);
+    if(lookPt&&!walking&&S.mode==="play"){const dx=lookPt.x-elisa.position.x,dz=lookPt.z-elisa.position.z;
+      if(Math.hypot(dx,dz)>.15){let da=Math.atan2(dx,dz)-elisa.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));elisa.rotation.y+=da*Math.min(1,dt*9)}}
+    animateRig(dt);
+    // les monstres apparaissent là où Elisa ne regarde pas, jusqu’à ce qu’elle aille voir de près
+    if(S.monsters&&S.mode==="play"){const a=lookAt(V(0.3,3.9,1.0)),b=lookAt(V(2.2,1.2,0.1));let w=S.eyes;
+      if(a>.55&&a>=b)w="bed";else if(b>.55&&b>a)w="placard";
+      if(w!==S.eyes){setEyes(w);if(w==="bed"&&!S.saidBed){S.saidBed=true;think("Eyes… under my bed.")}}}
+    // contour lumineux des endroits d’intérêt quand Elisa s’en approche
+    eyePairs.forEach(g=>blinkEyes(g,dt));
+    if(lampGlow)lampGlow.visible=S.hasLamp&&elisa.visible;
+    if(S.hasLamp){const ry=heading(),f=new THREE.Vector3(Math.sin(ry),0,Math.cos(ry));
+      if(lampGlow)lampGlow.getWorldPosition(torch.position);
+      const goal=(lookPt&&S.mode==="play")?lookPt.clone().setY(.35):elisa.position.clone().addScaledVector(f,2.2).setY(.35);torch.target.position.lerp(goal,Math.min(1,dt*10))}
+    const fl=1+Math.sin(gt*13)*.04+Math.sin(gt*31)*.03;night.intensity=nightBase*fl;
+  }
+  caTick(Math.min(.1,(now-(caTick.t||now))/1000));caTick.t=now;updCursor();placeIris();placeChip();grain(now);postMat.uniforms.time.value=now/1000;
+  if(!paused||!loop.drawnPaused){renderFrame();loop.drawnPaused=paused}
+  requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
