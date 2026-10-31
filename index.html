@@ -13,7 +13,7 @@
 /* Plein écran : la scène 3D, puis des calques HTML (grain, vignette, pensées, fins). Thème unique sombre. */
 :root{--bg:#000;--ink:#ff0000;--muted:#ff0000;--line:rgba(255,0,0,.35);--red:#ff0000;
   --f-display:"Special Elite","Courier New",monospace;--f-body:"Special Elite","Courier New",monospace;--f-head:"Manufacturing Consent","UnifrakturMaguntia",serif;--glow:0 0 .25em rgba(255,0,0,.55),0 0 .8em rgba(255,0,0,.3);color-scheme:dark}
-:root{--cur-closed:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2228%22%20viewBox%3D%220%200%2040%2028%22%3E%3Cpath%20d%3D%22M4%209%20Q20%2025%2036%209%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20opacity%3D%22.55%22/%3E%3Cpath%20d%3D%22M4%209%20Q20%2025%2036%209%22%20fill%3D%22none%22%20stroke%3D%22%23e0302a%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E") 20 14, default;--cur-open:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2228%22%20viewBox%3D%220%200%2040%2028%22%3E%3Cpath%20d%3D%22M2%2014%20Q20%20-4%2038%2014%20Q20%2032%202%2014Z%22%20fill%3D%22%23e0302a%22%20stroke%3D%22%23000%22%20stroke-opacity%3D%22.55%22%20stroke-width%3D%221.5%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2214%22%20r%3D%226.6%22%20fill%3D%22%23000%22%20fill-opacity%3D%22.72%22/%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2214%22%20r%3D%223.4%22%20fill%3D%22%23e0302a%22/%3E%3C/svg%3E") 20 14, pointer}
+:root{--cur-closed:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2228%22%20viewBox%3D%220%200%2040%2028%22%3E%3Cpath%20d%3D%22M4%209%20Q20%2025%2036%209%22%20fill%3D%22none%22%20stroke%3D%22%23e0302a%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E") 20 14, default;--cur-open:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2228%22%20viewBox%3D%220%200%2040%2028%22%3E%3Cpath%20fill-rule%3D%22evenodd%22%20fill%3D%22%23e0302a%22%20d%3D%22M2%2014%20Q20%20-4%2038%2014%20Q20%2032%202%2014Z%20M20%207.2%20A6.8%206.8%200%201%200%2020.01%207.2Z%20M20%2010.6%20A3.4%203.4%200%201%201%2019.99%2010.6Z%22/%3E%3C/svg%3E") 20 14, pointer}
 html,body,canvas#gl{cursor:var(--cur-closed)}
 html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden}
 body{font-family:var(--f-body);font-size:15px;-webkit-user-select:none;user-select:none}
@@ -418,11 +418,12 @@ const grainTex=(()=>{const S=256,a=new Float32Array(S*S).fill(0);
   for(let i=0;i<S*S;i++){const v=Math.max(0,Math.min(1,.9+a[i]+(R()-.5)*.08))*255;im.data[i*4]=im.data[i*4+1]=im.data[i*4+2]=v;im.data[i*4+3]=255}
   cx.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t})();
 const grainDone=new Set();
-function grainify(root,scale,world){root.traverse(o=>{if(!o.isMesh)return;[].concat(o.material).forEach(m=>{
+const gOriginElisa={value:new THREE.Vector3()};
+function grainify(root,scale,world,origin){root.traverse(o=>{if(!o.isMesh)return;[].concat(o.material).forEach(m=>{
   if(!m||!m.isMeshStandardMaterial||grainDone.has(m)||/Vitre|Ciel/.test(m.name))return;grainDone.add(m);
-  m.onBeforeCompile=sh=>{sh.uniforms.tGrain={value:grainTex};sh.uniforms.gScale={value:scale||1.4};
-    sh.vertexShader=sh.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vGP;varying vec3 vGN;")
-      .replace("#include <begin_vertex>",world?"#include <begin_vertex>\nvGP=(modelMatrix*vec4(transformed,1.)).xyz;":"#include <begin_vertex>\nvGP=position;")
+  m.onBeforeCompile=sh=>{sh.uniforms.tGrain={value:grainTex};sh.uniforms.gOrigin=origin||{value:new THREE.Vector3()};sh.uniforms.gScale={value:scale||1.4};
+    sh.vertexShader=sh.vertexShader.replace("#include <common>","#include <common>\nuniform vec3 gOrigin;varying vec3 vGP;varying vec3 vGN;")
+      .replace("#include <begin_vertex>",world?"#include <begin_vertex>\nvGP=(modelMatrix*vec4(transformed,1.)).xyz-gOrigin;":"#include <begin_vertex>\nvGP=position;")
       .replace("#include <defaultnormal_vertex>",world?"#include <defaultnormal_vertex>\nvGN=inverseTransformDirection(transformedNormal,viewMatrix);":"#include <defaultnormal_vertex>\nvGN=objectNormal;");
     sh.fragmentShader=sh.fragmentShader.replace("#include <common>","#include <common>\nuniform sampler2D tGrain;uniform float gScale;varying vec3 vGP;varying vec3 vGN;")
       .replace("#include <map_fragment>",`#include <map_fragment>
@@ -464,20 +465,32 @@ gltf().parse(glbBuffer(),"",g=>{
   g.scene.updateMatrixWorld(true);grainify(g.scene,1.4,true);
   buildNav();buildHotspots();
   gltf().parse(glbBuffer(window.ELISA_PERSO_GLB),"",ge=>{
-    ge.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(/cheveux/i.test(o.material.name))o.material.side=THREE.DoubleSide}});
-    // Elisa plus petite que nature (0,83 m) : la chambre paraît trop grande pour elle
-    grainify(ge.scene,2.2);ge.scene.scale.setScalar(.72);elisa.add(ge.scene);elisa.position.copy(V(2.82,1.2,0));elisa.rotation.y=Math.PI/2;elisa.updateMatrixWorld(true);
-    const root=ge.scene.getObjectByName("Elisa")||ge.scene;
-    const pivot=(names,x,y)=>{const g=new THREE.Group();root.add(g);g.position.set(x,y,0);g.updateMatrixWorld(true);
-      names.forEach(n=>{const o=ge.scene.getObjectByName(n);if(o)g.attach(o)});return g};
-    const body=new THREE.Group();root.add(body);[...root.children].forEach(c=>{if(c!==body)body.attach(c)});
-    rig={amp:0,body,legL:pivot(["Elisa_jambe_b","Elisa_chaussette_b"],-.078,.245),legR:pivot(["Elisa_jambe_a","Elisa_chaussette_a"],.078,.245),
-      armL:pivot([],-.11,.83),armR:pivot([],.11,.83)};  // les bras font partie de la robe dans ce modèle
-    [rig.legL,rig.legR,rig.armL,rig.armR].forEach(g=>root.add(g));
+    /* nouveau modèle (tête, bras, jambes séparés) : on retire le sol et la caméra de l'export, on le met à l'échelle (0,83 m), pieds au sol */
+    const drop=[];ge.scene.traverse(o=>{if(o.isCamera||o.isLight||o.name==="Cube_5")drop.push(o)});drop.forEach(o=>o.parent&&o.parent.remove(o));
+    const part=o=>{while(o&&(!o.name||/^mesh_\d+$/.test(o.name)))o=o.parent;return o?o.name:""};
+    const MAT=(c,r)=>new THREE.MeshStandardMaterial({color:c,roughness:r||.85});
+    const M={skin:MAT(0xe4ddd5),hair:MAT(0x1c1c1c,.7),eye:MAT(0x0a0a0a,.4),dress:MAT(0xdedede),collar:MAT(0xf2f2f2),leg:MAT(0xcfc8c0)};
+    ge.scene.traverse(o=>{if(!o.isMesh)return;const n=part(o.parent)||part(o),pn=part(o.parent&&o.parent.parent);
+      o.material=/LEG/.test(n)?M.leg:n==="Cube_2"?M.hair:/Cube_[34]/.test(n)?M.eye:n==="BODY"?M.dress:n==="Cube"?M.collar:M.skin;
+      o.castShadow=true;o.receiveShadow=true});
+    ge.scene.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(ge.scene),sz=bb.getSize(new THREE.Vector3()),K=.83/sz.y;
+    const norm=new THREE.Group();norm.scale.setScalar(K);norm.position.set(-(bb.min.x+bb.max.x)/2*K,-bb.min.y*K,-(bb.min.z+bb.max.z)/2*K);norm.add(ge.scene);
+    const root=new THREE.Group();root.add(norm);grainify(norm,3.0,true,gOriginElisa);elisa.add(root);
+    elisa.position.copy(V(2.82,1.2,0));elisa.rotation.y=Math.PI/2;elisa.updateMatrixWorld(true);
+    // pivots dans le repère d'Elisa (mètres) : hanches, épaules, cou
+    const at=(name,fn)=>{const o=ge.scene.getObjectByName(name);if(!o)return null;const b=new THREE.Box3().setFromObject(o);root.worldToLocal(b.min);root.worldToLocal(b.max);return fn(b)};
+    const pivot=(name,fn)=>{const o=ge.scene.getObjectByName(name),g=new THREE.Group();root.add(g);const p=at(name,fn);if(p)g.position.copy(p);g.updateMatrixWorld(true);if(o)g.attach(o);return g};
+    const top=b=>new THREE.Vector3((b.min.x+b.max.x)/2,b.max.y,(b.min.z+b.max.z)/2);
+    const shoulder=(b,side)=>new THREE.Vector3(side>0?Math.min(b.min.x,b.max.x)+.025:Math.max(b.min.x,b.max.x)-.025,Math.max(b.min.y,b.max.y)-.02,(b.min.z+b.max.z)/2);
+    const body=new THREE.Group();root.add(body);
+    rig={amp:0,body,legR:pivot("RIGHT_LEG",top),legL:pivot("LEFT-LEG",top),
+      armR:pivot("RIGHT_ARM",b=>shoulder(b,1)),armL:pivot("LEFT_ARM",b=>shoulder(b,-1)),head:pivot("HEAD",b=>new THREE.Vector3((b.min.x+b.max.x)/2,b.min.y+.03,(b.min.z+b.max.z)/2))};
+    root.updateMatrixWorld(true);body.attach(norm);
+    const hand=at("RIGHT_ARM",b=>new THREE.Vector3((b.min.x+b.max.x)/2,Math.min(b.min.y,b.max.y)+.02,Math.max(b.min.z,b.max.z)));
     // la lampe tenue dans une main : petite lueur
     lampGlow=new THREE.Group();lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.026,16,10),new THREE.MeshBasicMaterial({color:0xffffff})));
     lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.07,16,10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,depthWrite:false})));
-    lampGlow.add(new THREE.PointLight(0xffffff,.6,1.1,2));lampGlow.position.set(.205,.41,.07);lampGlow.visible=false;root.add(lampGlow);
+    lampGlow.add(new THREE.PointLight(0xffffff,.6,1.1,2));const ha=rig.armR;ha.updateMatrixWorld(true);if(hand){root.localToWorld(hand);ha.worldToLocal(hand);lampGlow.position.copy(hand)}lampGlow.visible=false;ha.add(lampGlow);
 
     ready=true;const b=$("b-start");b.disabled=false;$("b-start-label").textContent="Wake-Up.";
   },()=>{$("b-start-label").textContent="Elisa couldn’t load"});
@@ -941,8 +954,9 @@ function pathMove(dt){if(!S.path||!S.path.length)return;const[tx,ty]=S.path[0],[
 function animateRig(dt){if(!rig)return;
   if(walking)walkPhase+=dt*10.8;const amp=walking?1:0;rig.amp+=(amp-rig.amp)*Math.min(1,dt*10);
   const s=Math.sin(walkPhase)*rig.amp;
-  const sit=rig.sit||0;rig.legL.rotation.x=s*.55-sit*1.45;rig.legR.rotation.x=-s*.55-sit*1.45;rig.armL.rotation.x=-s*.3;rig.armR.rotation.x=s*.3;
-  rig.body.position.y=Math.abs(Math.sin(walkPhase))*.012*rig.amp}
+  const sit=rig.sit||0;rig.legL.rotation.x=s*.55-sit*1.45;rig.legR.rotation.x=-s*.55-sit*1.45;rig.armL.rotation.x=-s*.38;rig.armR.rotation.x=s*.38;
+  const bob=Math.abs(Math.sin(walkPhase))*.012*rig.amp;[rig.body,rig.head,rig.armL,rig.armR].forEach(g=>{if(!g)return;g.userData.y0??=g.position.y;g.position.y=g.userData.y0+bob});
+  if(rig.head){rig.head.rotation.z=Math.sin(walkPhase*.5)*.04*rig.amp;rig.head.rotation.x=sit*-.08}}
 
 /* ---------- pointeur ---------- */
 const ray=new THREE.Raycaster(),ptr=new THREE.Vector2(),floor=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -959,7 +973,7 @@ const NEAR=1.1;   // distance (m) sous laquelle l’œil invite à regarder
 let ptrIn=false;canvas.addEventListener("pointerenter",()=>ptrIn=true);
 let curKey="";function updCursor(){const ck=ptr.x.toFixed(3)+ptr.y.toFixed(3)+elisa.position.x.toFixed(2)+elisa.position.z.toFixed(2)+S.mode+paused;if(ck===curKey)return;curKey=ck;if(!ptrIn||paused||S.mode!=="play"){canvas.style.cursor="var(--cur-closed)";return}
   // aucun changement de curseur tant qu’Elisa n’est pas tout près : pas d’indice à distance
-  const h=pickHot();canvas.style.cursor=h&&distToHot(h)<=NEAR?"var(--cur-open)":"var(--cur-closed)"}
+  const h=pickHot();canvas.style.cursor=h?"var(--cur-open)":"var(--cur-closed)"}
 canvas.addEventListener("pointerleave",()=>{ptrIn=false;hideChip();canvas.style.cursor="var(--cur-closed)"});
 canvas.addEventListener("pointerdown",e=>{setPtr(e);if(paused)return;
   if(popOpen()){closePop();return}
@@ -993,7 +1007,7 @@ function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
     turning(dt);if(S.path)pathMove(dt);
     if(lookPt&&!walking&&S.mode==="play"){const dx=lookPt.x-elisa.position.x,dz=lookPt.z-elisa.position.z;
       if(Math.hypot(dx,dz)>.15){let da=Math.atan2(dx,dz)-elisa.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));elisa.rotation.y+=da*Math.min(1,dt*9)}}
-    animateRig(dt);
+    animateRig(dt);gOriginElisa.value.copy(elisa.position);
     // les monstres apparaissent là où Elisa ne regarde pas, jusqu’à ce qu’elle aille voir de près
     if(S.monsters&&S.mode==="play"){const a=lookAt(V(0.3,3.9,1.0)),b=lookAt(V(2.2,1.2,0.1));let w=S.eyes;
       if(a>.55&&a>=b)w="bed";else if(b>.55&&b>a)w="placard";
