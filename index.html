@@ -814,11 +814,11 @@ function whoosh(){if(!AC||AC.state!=="running")return;if(!uiNoise)uiNoise=noiseB
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09,t+.2);g.gain.exponentialRampToValueAtTime(.0005,t+.62);n.connect(bp).connect(g).connect(master);n.start(t,Math.random()*.3);n.stop(t+.65)}
 function typeTick(){if(!AC||AC.state!=="running")return;if(!uiNoise)uiNoise=noiseBuf(1);const t=AC.currentTime,n=AC.createBufferSource(),hp=AC.createBiquadFilter(),bp=AC.createBiquadFilter(),g=AC.createGain();
   n.buffer=uiNoise;hp.type="highpass";hp.frequency.value=1200;bp.type="peaking";bp.frequency.value=2600+Math.random()*1400;bp.gain.value=8;
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22+Math.random()*.08,t+.002);g.gain.exponentialRampToValueAtTime(.0005,t+.045);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09+Math.random()*.03,t+.002);g.gain.exponentialRampToValueAtTime(.0005,t+.045);
   n.connect(hp).connect(bp).connect(g).connect(master);n.start(t,Math.random()*.9);n.stop(t+.06);
   // petit « tac » grave du marteau
   const o=AC.createOscillator(),og=AC.createGain();o.frequency.setValueAtTime(190+Math.random()*40,t);o.frequency.exponentialRampToValueAtTime(90,t+.03);
-  og.gain.setValueAtTime(.12,t);og.gain.exponentialRampToValueAtTime(.0005,t+.035);o.connect(og).connect(master);o.start(t);o.stop(t+.04)}
+  og.gain.setValueAtTime(.05,t);og.gain.exponentialRampToValueAtTime(.0005,t+.035);o.connect(og).connect(master);o.start(t);o.stop(t+.04)}
 function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resume().catch(()=>{});musicEl.play().then(()=>{["pointerdown","keydown","touchstart"].forEach(ev=>removeEventListener(ev,audioUnlock,true))}).catch(()=>{})}
 ["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,audioUnlock,true));
 audioUnlock();
