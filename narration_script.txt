@@ -140,3 +140,5 @@ Elisa did not move. The night moved for her.
 
 
 threshold: The dark, beyond the threshold of the bedroom door, gave the girl goosebumps.
+
+door_no: I would not open that door. But then... who am I, really?
