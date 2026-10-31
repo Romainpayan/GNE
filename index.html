@@ -323,7 +323,7 @@ ceil.position.copy(V(2.5,2.5,2.73));ceil.castShadow=true;scene.add(ceil);
 
 /* ---------- son (Web Audio, tout est synthétisé) ---------- */
 let AC=null,master=null,droneG=null,heartTimer=null;
-function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop()}catch(e){AC=null}}
+function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop();setTimeout(()=>Object.keys(NARR).forEach(narrLoad),1500)}catch(e){AC=null}}
 /* sons enregistrés (générés avec Sunra / ElevenLabs) : chargés au démarrage, sinon on garde les sons de synthèse */
 const SFX_FILES=["ui_clic","cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
 function loadSfx(){SFX_FILES.forEach(n=>fetch("sons/"+n+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).then(buf=>{SFX[n]=buf;if(n==="nuit")nightLoop();if(n==="musique")musicLoop()}).catch(()=>{}))}
@@ -389,6 +389,18 @@ function typeText(el,t,cps,done){clearInterval(typers.get(el));el.setAttribute("
     if(i-lastTick>=2&&t[i-1]!==" "){lastTick=i;typeTick()}if(i>=t.length){clearInterval(typers.get(el));done&&done()}};
   if(REDUCE){el.textContent=t;done&&done();return}
   typers.set(el,setInterval(step,25))}
+/* ---------- narratrice (façon Stanley Parable) : sous-titre tapé + voix, sons/narr/<id>.mp3 ---------- */
+const NARR={"wake1": "This is the story of a little girl named Elisa. Every night, she woke up in the dark. And every night, she was very, very brave. Or so she told herself.", "wake2": "And once again, Elisa woke up. Some children never learn.", "nudge": "Elisa could, of course, simply get up. Any time now, darling.", "getup": "Elisa climbed out of bed, determined to find her parents.", "wardrobe": "The wardrobe door opened. By itself. Naturally.", "idle": "Elisa stood perfectly still, waiting, perhaps, for the dark to get bored.", "bed": "Elisa considered going back to bed. A tempting idea. Also a cowardly one.", "drawer": "In the desk drawer, Elisa found her flashlight. How wonderfully convenient.", "nobatt": "It did not turn on. Of course it didn't. Nothing is ever that easy.", "batt1": "One battery. Elisa needed two. Mathematics can be so cruel.", "batt2": "And the second battery. Light, at last.", "dolls": "The dolls on the shelf watched Elisa. They always did.", "chest": "The toy chest. Full of old friends. Most of them harmless.", "window": "Outside, the garden. And the doghouse. Whatever had been chained there was no longer chained there.", "drawing": "A drawing. Elisa didn't remember drawing it. That was the interesting part.", "bunny": "Bunny was asleep. Bunny was always asleep when Elisa needed him.", "eyes_wardrobe": "Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.", "eyes_bed": "Then, under the bed. Two eyes. Patient ones.", "coats": "Coats. Just coats. How very disappointing for everyone.", "toys": "Toys. Only toys. Elisa almost sounded relieved.", "hall_dark": "Elisa stepped into the dark hallway without a light. Bold. Foolish, but bold.", "hall_lamp": "Flashlight in hand, Elisa stepped into the hallway. And the story could finally begin.", "end_scare": "And that, I'm afraid, was the end of Elisa. For tonight.", "end_paralysis": "Elisa did not move. The night moved for her.", "unreachable": "Elisa could not reach that. Elisa is small. We've been over this.", "again": "Elisa looked again. Nothing had changed. Things rarely do."};
+const narrBuf={},narrSeen=new Set();let narrSrc=null,narrUntil=0;
+function narrLoad(id){if(narrBuf[id]||!AC)return narrBuf[id];narrBuf[id]=fetch("sons/narr/"+id+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).catch(()=>null);return narrBuf[id]}
+function narr(id,o){o=o||{};if(o.once&&narrSeen.has(id))return false;const t=NARR[id];if(!t)return false;
+  if(o.ifFree&&performance.now()<narrUntil)return false;narrSeen.add(id);
+  if(narrSrc){try{narrSrc.stop()}catch(e){}narrSrc=null}
+  think(t,Math.max(2600,t.length*55));narrUntil=performance.now()+t.length*60;
+  const p=narrLoad(id);if(p)p.then(buf=>{if(!buf||!AC)return;const src=AC.createBufferSource(),g=AC.createGain();src.buffer=buf;g.gain.value=1.1;src.connect(g).connect(master);
+    narrSrc=src;src.start();narrUntil=performance.now()+buf.duration*1000+300;musicLevel(.45,.3);src.onended=()=>{if(narrSrc===src){narrSrc=null;musicLevel(1,1.2)}}});
+  return true}
+
 function think(t,ms){const el=$("thought");typeText(el,t);el.classList.add("on");clearTimeout(thoughtTimer);thoughtTimer=setTimeout(()=>el.classList.remove("on"),(ms||3200)+t.length*30)}
 const chip=$("chip");
 function showChip(text,pos,act){chip.textContent=text;chip.classList.add("on");chip.classList.toggle("act",!!act);chip._pos=pos}
@@ -634,7 +646,7 @@ function buildHotspots(){
     // l'illustration du tiroir : un clic sur la lampe la fait disparaître (Elisa la prend)
     img:{src:"tiroir.webp",alt:"The open drawer: a flashlight on sheets of paper, pencils, scissors, a ruler, cracked glasses, marbles and a notebook with Elisa’s name.",
       after:"tiroir_vide.webp",afterAlt:"The same drawer, without the flashlight.",taken:S.gotLamp,
-      take:set=>{const lit=takeLamp();set(lit?"The flashlight. With the batteries… it works. Now I’m not scared anymore.":"The flashlight. It doesn’t turn on… the batteries are gone.",[])}},
+      take:set=>{const lit=takeLamp();narr(lit?"batt2":"nobatt");set(lit?"The flashlight. With the batteries… it works. Now I’m not scared anymore.":"The flashlight. It doesn’t turn on… the batteries are gone.",[])}},
     t:S.gotLamp?"The drawer. No more flashlight.":"My flashlight is in here, at the back of the drawer.",
     onOpen:()=>{drawer(true);drawerSnd()},onClose:()=>{drawer(false);if(AC&&!sfx("tiroir_ferme",{vol:.85}))drawerSnd()}}));
   hotspot("dessin","Look at the drawing",[0,0.8,1.1,0.12,1.35,1.8],1.0,h=>focusObj(h,{zoom:2.3,after:()=>{$("s-drawing").hidden=false;$("b-dclose").focus({preventScroll:true})}}));
@@ -688,7 +700,7 @@ function inspect(id,h){heart(66,0);musicLevel(.4,.8);
       // une demi-seconde dans le noir… puis clic de la lampe, la lumière révèle ce que c’était vraiment
       later(()=>heartTo(150,900),900);
       later(()=>{torchOn();stopHeart();musicLevel(1,1.5);const fg=$("pop-fig");fg.classList.add("flash","taken");$("pop").dataset.lock="";
-        later(()=>setPopBody(pl?"Just coats. And Daddy’s hat.":"Just my toys. The drum, the marbles, my old train.",[]),350)},1800)},300)})}
+        narr(pl?"coats":"toys");later(()=>setPopBody(pl?"Just coats. And Daddy’s hat.":"Just my toys. The drum, the marbles, my old train.",[]),350)},1800)},300)})}
 /* sans la lampe : le monstre apparaît dans le pop-up, fixe l’enfant, puis se jette sur elle */
 function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=id==="placard";musicLevel(.25,.4);later(()=>heartTo(170,1300),1600);
   showPop(pl?"The wardrobe":"Under the bed","",null,null,
@@ -697,7 +709,7 @@ function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=i
   // fondu (0,8 s), un temps très court… puis gros plan éclair sur les yeux
   // coupure franche sur le monstre en plein écran, avec son cri
   later(()=>{caPulse(1.6);if(!(AC&&sfx(pl?"sursaut_armoire":"sursaut_lit")))stinger();const sc=$("scare");$("scare-img").src=pl?"sursaut_armoire.webp":"sursaut_lit.webp";sc.classList.add("on");const P=$("pop");P.dataset.lock="";P.classList.remove("on","lunge");const bg=$("popbg");bg.style.transition="";bg.classList.remove("on")},3000);
-  later(()=>{stopHeart();$("scare").classList.remove("on");ending(id)},3550)}
+  later(()=>{stopHeart();$("scare").classList.remove("on");ending(id)},3550);later(()=>narr("end_scare"),3900)}
 /* ---------- tous les objets : zoom rapide, puis un pop-up qui s’ouvre ---------- */
 let popOnClose=null;
 let popMood="";
@@ -741,7 +753,8 @@ function setPopBody(t,actions){const pt=$("pop-t");pt.hidden=!t;typeText(pt,t,38
   const c=document.createElement("button");c.type="button";c.className="btn";c.textContent=(actions&&actions.length)?"Leave it":"Close";c.onclick=closePop;a.appendChild(c)}
 function popOpen(){return $("pop").classList.contains("on")}
 function closePop(){if(!popOpen()||$("pop").dataset.lock)return;setTimeout(()=>{if(!popOpen())dollFX.stop()},400);humOut(popMood);const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");$("pop").classList.remove("on");const f=popOnClose;popOnClose=null;later(()=>f&&f(),120)}
-function focusObj(h,o){S.mode="busy";S.path=null;walking=false;hideChip();canvas.style.cursor="var(--cur-closed)";faceTo(h.userData.center);aimPt.copy(h.userData.center);
+const OBJ_NARR={lit:"bed",bureau:"drawer",fenetre:"window",doudou:"bunny",coffre:"chest",etagere:"dolls"};
+function focusObj(h,o){{const id=OBJ_NARR[h.userData.id];if(id&&!(h.userData.id==="bureau"&&S.gotLamp)){if(!narr(id,{once:true})&&Math.random()<.35)narr("again",{ifFree:true})}}S.mode="busy";S.path=null;walking=false;hideChip();canvas.style.cursor="var(--cur-closed)";faceTo(h.userData.center);aimPt.copy(h.userData.center);
   o.onOpen&&o.onOpen();
   eyeClose(650,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");if(o.after)return o.after();
     showPop(o.k,o.t,o.actions,()=>{o.onClose&&o.onClose();eyeOpen(650,()=>{if(S.mode==="busy")S.mode="play"})},o.img?Object.assign({delay:120},o.img):null,false,typeof o.mood==="function"?o.mood():o.mood)})}
@@ -751,9 +764,9 @@ function invLabel(){const el=$("inv");if(!S.gotLamp&&!S.cells){el.classList.remo
 /* la lampe ne marche qu'avec ses deux piles */
 function lampCheck(){if(S.hasLamp||!S.gotLamp||S.cells<2)return false;S.hasLamp=true;torchOn();torch.intensity=55;invLabel();return true}
 function takeLamp(){S.gotLamp=true;if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=false;invLabel();return lampCheck()}
-function takeCell(where){S["cell"+where]=true;S.cells++;if(AC)sfx("allumer",{vol:.4,rate:.7});invLabel();return lampCheck()}
+function takeCell(where){S["cell"+where]=true;S.cells++;narr(S.cells>=2&&S.gotLamp?"batt2":"batt1");if(AC)sfx("allumer",{vol:.4,rate:.7});invLabel();return lampCheck()}
 const cellLine=lit=>lit?"Both batteries. Click… it works. Now I’m not scared anymore.":S.cells===1?"A battery. I need one more.":"A battery!";
-function closeDrawing(){if($("s-drawing").hidden)return;$("s-drawing").hidden=true;eyeOpen(650,()=>{S.mode="play";think("The path to the doghouse. Did I draw that?")},0,420)}
+function closeDrawing(){if($("s-drawing").hidden)return;$("s-drawing").hidden=true;eyeOpen(650,()=>{S.mode="play";narr("drawing",{once:true})||narr("again")},0,420)}
 
 /* ---------- curseur « œil » au survol des endroits à fouiller (pas le lit, pas la porte) ---------- */
 const SEARCH=["bureau","dessin","placard","souslit","fenetre","coffre","etagere"];
@@ -777,14 +790,14 @@ function prologue(first){$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").cl
   // elle se réveille en sursaut : un cercle serré sur elle et le lit, puis le noir se retire peu à peu
   later(()=>{gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
     $("dark").style.transition="none";$("dark").style.opacity=0;droneLevel(.55,2);
-    later(()=>think(first?"…That nightmare again. Mommy?":"…Mommy?",3400),500);
+    later(()=>narr(first?"wake1":"wake2"),500);later(()=>{if(S.mode==="wake")narr("nudge")},5200);
     later(()=>anim(3800,k=>{const e=k*k*(3-2*k);C.style.setProperty("--r",(4+86*e)+"%");C.style.setProperty("--soft",(9+30*e)+"%")},
       ()=>{wakeIris=false;C.style.opacity=0;C.style.setProperty("--soft","18%");C.style.setProperty("--cx","50%");C.style.setProperty("--cy","55%")}),900);
     later(()=>{if(!S.stretched)endParalysis()},9000)},t1+650);
 }
 function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hideChip();
   sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play";
-    later(()=>{creak();placardDoor(-50,1800);later(()=>whisper2(),1700);later(()=>{S.monsters=true;setEyes("placard");think("There’s something in the wardrobe…")},1300)},2200)}),450)))}
+    narr("getup");later(()=>{creak();narr("wardrobe");placardDoor(-50,1800);later(()=>whisper2(),1700);later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe")},1300)},2200)}),450)))}
 /* ---------- paralysie du sommeil : une ombre-main qui rampe au sol, grimpe le pied du lit et avance sur la couette ----------
    Une bande de géométrie épouse le trajet (sol -> face du pied de lit -> dessus -> couette). Le shader y dessine,
    d'après la distance parcourue, une masse noire aux bords mouvants et cinq longs doigts effilés qui ondulent. */
@@ -819,7 +832,7 @@ const crawl=(()=>{const path=[[3.95,.008],[2.275,.008],[2.275,.64],[2.17,.64],[2
       a*=op;if(a<.01)discard;gl_FragColor=vec4(0.,0.,0.,a);}`});
   const mesh=new THREE.Mesh(g,m);mesh.renderOrder=1;mesh.visible=false;scene.add(mesh);eyeGlows.push(mesh);
   return{mesh,m,length:acc}})();
-function endParalysis(){S.mode="busy";hideChip();think("I can’t move.",3000);heart(64);droneLevel(.9,1.5);
+function endParalysis(){S.mode="busy";hideChip();narr("end_paralysis");heart(64);droneLevel(.9,1.5);
   const C=$("closing");crawl.mesh.visible=true;crawl.m.uniforms.op.value=1;
   const reach=crawl.length-.1-.2; // les doigts remontent sur elle jusqu'à son visage, la masse la recouvre
   glMax=.12;anim(7000,k=>{caHold=k*.9;const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;crawl.m.uniforms.F.value=.2+e*reach;crawl.m.uniforms.time.value=gt;
@@ -827,10 +840,10 @@ function endParalysis(){S.mode="busy";hideChip();think("I can’t move.",3000);h
     ()=>{crawl.mesh.visible=false;ending("paralysie")})}
 function scare(id){S.mode="busy";hideChip();follow=null;stinger();const s=$("scare");s.classList.add("on");later(()=>{s.classList.remove("on");ending(id)},1100)}
 function endDark(){S.mode="busy";hideChip();follow=null;roomDoor(true);
-  walkTo(4.0,-0.6,()=>{elisa.visible=false;think("The hallway is pitch black…",3500);heart(80);droneLevel(1,1);
+  walkTo(4.0,-0.6,()=>{elisa.visible=false;narr("hall_dark");heart(80);droneLevel(1,1);
     anim(4800,k=>{caHold=k*.7;hemi.intensity=.32*(1-k);moon.intensity=3.4*(1-k);nightBase=.9*(1-k);$("closing").style.setProperty("--r",(70-65*k)+"%");$("closing").style.opacity=k},()=>ending("noir"))})}
 function endCorridor(){S.mode="busy";hideChip();follow=null;roomDoor(true);
-  walkTo(4.0,-0.6,()=>{elisa.visible=false;think("The flashlight lights up the hallway. At the end, a portrait…",3800);
+  walkTo(4.0,-0.6,()=>{elisa.visible=false;narr("hall_lamp");
     anim(3000,k=>{$("dark").style.opacity=k},()=>ending("couloir"))})}
 function ending(id){$("gamelid").hidden=true;$("popbg").classList.remove("on");caHold=0;glMax=1;caPulse(1.2);if(AC){sfx("cri_fin",{vol:.8});sfx("cri_enfant",{vol:.75,at:.05})}stopHeart();musicLevel(.5,1.5);droneLevel(.25,1);const e=ENDINGS.find(x=>x.id===id);found.add(id);saveFound();
   $("end-n").textContent=e.n;$("end-t").textContent=e.t;
@@ -954,7 +967,7 @@ function goTo(x,y,h){const[sx,sy]=elisaXY();let p=astar(sx,sy,x,y);
   if(!p||p.length<2){S.path=null;if(h)arrive(h);return}
   S.path=p.slice(1);S.onArrive=h?()=>arrive(h):null}
 function arrive(h){faceTo(h.userData.center);aimPt.copy(h.userData.center);
-  if(distToHot(h)<=h.userData.reach+.15)h.userData.act(h);else{humNope();think("I can’t reach that.",2200)}}
+  if(distToHot(h)<=h.userData.reach+.15)h.userData.act(h);else{humNope();narr("unreachable")}}
 /* trajets scriptés (sortie par la porte) */
 function walkTo(x,y,done){const[sx,sy]=elisaXY();const p=(astar(sx,sy,Math.min(x,4.6),Math.max(y,.3))||[[sx,sy]]);p.push([x,y]);S.path=p.slice(1);S.onArrive=done||null}
 function pathMove(dt){if(!S.path||!S.path.length)return;const[tx,ty]=S.path[0],[x,y]=elisaXY(),dx=tx-x,dy=ty-y,d=Math.hypot(dx,dy),sp=SPEED*dt;walking=true;
@@ -1019,7 +1032,8 @@ function turning(dt){let t=turn;if(keys.has("arrowleft")||keys.has("q")||keys.ha
 
 /* ---------- boucle ---------- */
 let last=performance.now();
-function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
+let lastInput=performance.now();["pointerdown","keydown"].forEach(ev=>addEventListener(ev,()=>lastInput=performance.now(),true));
+function loop(now){if(S.mode==="play"&&!paused&&!popOpen()&&now-lastInput>28000){lastInput=now;narr("idle",{ifFree:true})}const dt=Math.min(.1,(now-last)/1000);last=now;
   if(ready&&!paused){tickClock(dt);walking=false;
     turning(dt);if(S.path)pathMove(dt);
     if(lookPt&&!walking&&S.mode==="play"){const dx=lookPt.x-elisa.position.x,dz=lookPt.z-elisa.position.z;
@@ -1030,7 +1044,7 @@ function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
     // les monstres apparaissent là où Elisa ne regarde pas, jusqu’à ce qu’elle aille voir de près
     if(S.monsters&&S.mode==="play"){const a=lookAt(V(0.3,3.9,1.0)),b=lookAt(V(2.2,1.2,0.1));let w=S.eyes;
       if(a>.55&&a>=b)w="bed";else if(b>.55&&b>a)w="placard";
-      if(w!==S.eyes){setEyes(w);if(w==="bed"&&!S.saidBed){S.saidBed=true;think("Eyes… under my bed.")}}}
+      if(w!==S.eyes){setEyes(w);if(w==="bed"&&!S.saidBed){S.saidBed=true;narr("eyes_bed")}}}
     // contour lumineux des endroits d’intérêt quand Elisa s’en approche
     eyePairs.forEach(g=>blinkEyes(g,dt));
     if(lampGlow)lampGlow.visible=S.hasLamp&&elisa.visible;

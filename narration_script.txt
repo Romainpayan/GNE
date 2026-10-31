@@ -1,0 +1,81 @@
+GOOD NIGHT ELISA — narrator script (voice: Cruella, ElevenLabs)
+One file per line, MP3, named exactly as below. Send them back and they drop straight into the game.
+
+wake1.mp3
+This is the story of a little girl named Elisa. Every night, she woke up in the dark. And every night, she was very, very brave. Or so she told herself.
+
+wake2.mp3
+And once again, Elisa woke up. Some children never learn.
+
+nudge.mp3
+Elisa could, of course, simply get up. Any time now, darling.
+
+getup.mp3
+Elisa climbed out of bed, determined to find her parents.
+
+wardrobe.mp3
+The wardrobe door opened. By itself. Naturally.
+
+idle.mp3
+Elisa stood perfectly still, waiting, perhaps, for the dark to get bored.
+
+bed.mp3
+Elisa considered going back to bed. A tempting idea. Also a cowardly one.
+
+drawer.mp3
+In the desk drawer, Elisa found her flashlight. How wonderfully convenient.
+
+nobatt.mp3
+It did not turn on. Of course it didn't. Nothing is ever that easy.
+
+batt1.mp3
+One battery. Elisa needed two. Mathematics can be so cruel.
+
+batt2.mp3
+And the second battery. Light, at last.
+
+dolls.mp3
+The dolls on the shelf watched Elisa. They always did.
+
+chest.mp3
+The toy chest. Full of old friends. Most of them harmless.
+
+window.mp3
+Outside, the garden. And the doghouse. Whatever had been chained there was no longer chained there.
+
+drawing.mp3
+A drawing. Elisa didn't remember drawing it. That was the interesting part.
+
+bunny.mp3
+Bunny was asleep. Bunny was always asleep when Elisa needed him.
+
+eyes_wardrobe.mp3
+Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.
+
+eyes_bed.mp3
+Then, under the bed. Two eyes. Patient ones.
+
+coats.mp3
+Coats. Just coats. How very disappointing for everyone.
+
+toys.mp3
+Toys. Only toys. Elisa almost sounded relieved.
+
+hall_dark.mp3
+Elisa stepped into the dark hallway without a light. Bold. Foolish, but bold.
+
+hall_lamp.mp3
+Flashlight in hand, Elisa stepped into the hallway. And the story could finally begin.
+
+end_scare.mp3
+And that, I'm afraid, was the end of Elisa. For tonight.
+
+end_paralysis.mp3
+Elisa did not move. The night moved for her.
+
+unreachable.mp3
+Elisa could not reach that. Elisa is small. We've been over this.
+
+again.mp3
+Elisa looked again. Nothing had changed. Things rarely do.
+
