@@ -814,8 +814,8 @@ function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hide
   // la voix raconte le lever pendant qu'elle se lève ; puis « she… » — l'armoire grince dans la pause — « wait. »
   for(let i=narrQ.length-1;i>=0;i--)if(/^(wake|nudge)/.test(narrQ[i].id))narrQ.splice(i,1);
   narrThen("getup",()=>later(()=>narrThen("wait",()=>{
-      later(()=>narrThen("wardrobe",()=>{whisper2();later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe")},900)}),300)},
-      [[2.45,()=>{creak();placardDoor(-50,1800)}]]),900));
+      later(()=>narrThen("wardrobe",()=>{whisper2();later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe")},300)}),300)},
+      [[2.45,()=>{creak();placardDoor(-50,1800);later(()=>setEyes("placard"),1100)}]]),900));
   sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play"}),450)))}
 /* ---------- paralysie du sommeil : une ombre-main qui rampe au sol, grimpe le pied du lit et avance sur la couette ----------
    Une bande de géométrie épouse le trajet (sol -> face du pied de lit -> dessus -> couette). Le shader y dessine,
@@ -941,11 +941,11 @@ function whoosh(){if(!AC||AC.state!=="running")return;if(!uiNoise)uiNoise=noiseB
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09,t+.2);g.gain.exponentialRampToValueAtTime(.0005,t+.62);n.connect(bp).connect(g).connect(master);n.start(t,Math.random()*.3);n.stop(t+.65)}
 function typeTick(){if(!AC||AC.state!=="running")return;if(!uiNoise)uiNoise=noiseBuf(1);const t=AC.currentTime,n=AC.createBufferSource(),hp=AC.createBiquadFilter(),bp=AC.createBiquadFilter(),g=AC.createGain();
   n.buffer=uiNoise;hp.type="highpass";hp.frequency.value=1200;bp.type="peaking";bp.frequency.value=2600+Math.random()*1400;bp.gain.value=8;
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09+Math.random()*.03,t+.002);g.gain.exponentialRampToValueAtTime(.0005,t+.045);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.022+Math.random()*.008,t+.002);g.gain.exponentialRampToValueAtTime(.0005,t+.045);
   n.connect(hp).connect(bp).connect(g).connect(master);n.start(t,Math.random()*.9);n.stop(t+.06);
   // petit « tac » grave du marteau
   const o=AC.createOscillator(),og=AC.createGain();o.frequency.setValueAtTime(190+Math.random()*40,t);o.frequency.exponentialRampToValueAtTime(90,t+.03);
-  og.gain.setValueAtTime(.05,t);og.gain.exponentialRampToValueAtTime(.0005,t+.035);o.connect(og).connect(master);o.start(t);o.stop(t+.04)}
+  og.gain.setValueAtTime(.01,t);og.gain.exponentialRampToValueAtTime(.0005,t+.035);o.connect(og).connect(master);o.start(t);o.stop(t+.04)}
 function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resume().catch(()=>{});musicEl.play().then(()=>{["pointerdown","keydown","touchstart"].forEach(ev=>removeEventListener(ev,audioUnlock,true))}).catch(()=>{})}
 ["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,audioUnlock,true));
 audioUnlock();
