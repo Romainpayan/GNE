@@ -57,6 +57,12 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 #s-title .cw{transition:opacity .5s ease-in}
 #s-title.closing .cw{opacity:0}
 #eyelid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+/* écran d'entrée : tout est fermé, seul « Enter. » ; au clic l'œil s'ouvre et le titre apparaît */
+.wake.enter{position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:4;transition:opacity .5s}
+#s-title:not(.gate) .wake.enter{opacity:0;pointer-events:none}
+#s-title .in{transition:opacity 1.4s ease .5s}
+#s-title.gate .in,#s-title.gate .cw{opacity:0;pointer-events:none}
+#s-title.gate .iris{opacity:.6}
 #s-title .in{position:relative;z-index:1;max-width:min(1200px,94vw);width:100%;justify-items:center}
 #s-title .in{gap:clamp(18px,4vh,40px)}
 #s-title .cw{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:auto;text-align:center;z-index:3}
@@ -168,7 +174,10 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
     <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/></filter></svg>
   <div id="scare" aria-hidden="true"><img id="scare-img" alt=""></div>
 
-  <section class="screen" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="iris" id="iris" aria-hidden="true"></div><canvas id="eyelid" aria-hidden="true"></canvas><div class="in">
+  <section class="screen gate" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="iris" id="iris" aria-hidden="true"></div><canvas id="eyelid" aria-hidden="true"></canvas>
+    <button class="wake enter" id="b-enter" type="button"><svg viewBox="0 0 220 96" aria-hidden="true">
+      <path class="white lid-top" d="M6 48 Q110 -36 214 48Z" fill="#fff"/><path class="white" d="M6 48 Q110 132 214 48Z" fill="#fff"/>
+      <path class="lid-top" d="M6 48 Q110 -36 214 48" fill="none" stroke="#ff0000" stroke-width="2"/><path d="M6 48 Q110 132 214 48" fill="none" stroke="#ff0000" stroke-width="2"/></svg><span class="label">Enter.</span></button><div class="in">
     <h1 class="title"><img src="logo.webp" alt="Good Night Elisa"></h1>
     <button class="wake" id="b-start" type="button" disabled aria-describedby="title-cw"><svg viewBox="0 0 220 96" aria-hidden="true">
       <path class="white lid-top" d="M6 48 Q110 -36 214 48Z" fill="#fff"/><path class="white" d="M6 48 Q110 132 214 48Z" fill="#fff"/>
@@ -799,7 +808,7 @@ function setLit(v){$("title-lit").classList.toggle("off",!v);if(titleFX)titleFX.
     setTimeout(()=>{setLit(true);next()},t+40)}
   next()})();$("b-etitle").onclick=toTitle;
 /* paupières de l'écran titre : une amande ouverte dans le noir, bords flous. Repos : entrouverte ; survol : grande ouverte ; clic : se ferme */
-const LID_REST=.6,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
+const LID_REST=.6,LID_OPEN=1.06,LID_GATE=.3;const lid={v:0,t:0,drawn:-1,w:0,h:0};
 (function lidLoop(){const cv=$("eyelid"),ctx=cv.getContext("2d"),T=$("s-title");
   function draw(){const W=Math.max(1,Math.round(innerWidth/2)),H=Math.max(1,Math.round(innerHeight/2));
     if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;lid.drawn=-1}
@@ -835,7 +844,13 @@ function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resu
 ["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,audioUnlock,true));
 audioUnlock();
 const wakeBtn=$("b-start");
-const peek=on=>{if($("s-title").classList.contains("closing")||!ready)return;$("s-title").classList.toggle("peek",on);lid.t=on?LID_OPEN:LID_REST};
+const enterBtn=$("b-enter");
+const gatePeek=on=>{if($("s-title").classList.contains("gate"))lid.t=on?LID_GATE:0};
+enterBtn.addEventListener("pointerenter",()=>gatePeek(true));enterBtn.addEventListener("pointerleave",()=>gatePeek(false));
+enterBtn.addEventListener("focus",()=>gatePeek(true));enterBtn.addEventListener("blur",()=>gatePeek(false));
+enterBtn.onclick=()=>{const T=$("s-title");if(!T.classList.contains("gate"))return;audioUnlock();T.classList.remove("gate");lid.t=LID_REST;
+  enterBtn.blur()};
+const peek=on=>{if($("s-title").classList.contains("closing")||$("s-title").classList.contains("gate")||!ready)return;$("s-title").classList.toggle("peek",on);lid.t=on?LID_OPEN:LID_REST};
 wakeBtn.addEventListener("pointerenter",()=>peek(true));wakeBtn.addEventListener("pointerleave",()=>peek(false));
 wakeBtn.addEventListener("focus",()=>peek(true));wakeBtn.addEventListener("blur",()=>peek(false));
 $("b-start").onclick=()=>{if(!ready||$("s-title").classList.contains("closing"))return;audioUnlock();preloadArt();musicLevel(.3,.6);
