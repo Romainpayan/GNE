@@ -309,7 +309,7 @@ ceil.position.copy(V(2.5,2.5,2.73));ceil.castShadow=true;scene.add(ceil);
 let AC=null,master=null,droneG=null,heartTimer=null;
 function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop()}catch(e){AC=null}}
 /* sons enregistrés (générés avec Sunra / ElevenLabs) : chargés au démarrage, sinon on garde les sons de synthèse */
-const SFX_FILES=["cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
+const SFX_FILES=["ui_whoosh","ui_clic","frappe","cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
 function loadSfx(){SFX_FILES.forEach(n=>fetch("sons/"+n+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).then(buf=>{SFX[n]=buf;if(n==="nuit")nightLoop();if(n==="musique")musicLoop()}).catch(()=>{}))}
 function sfx(n,o){if(!AC||!SFX[n])return false;o=o||{};const src=AC.createBufferSource();src.buffer=SFX[n];src.playbackRate.value=o.rate||1;
   const g=AC.createGain();g.gain.value=o.vol==null?1:o.vol;src.connect(g).connect(o.dest||master);src.start(AC.currentTime+(o.at||0));return true}
@@ -328,7 +328,7 @@ function drone(){droneG=AC.createGain();droneG.gain.value=.0;droneG.connect(mast
 function droneLevel(v,t){if(!AC)return;droneG.gain.setTargetAtTime(v,AC.currentTime,t||1)}
 function env(node,t0,a,peak,d){node.gain.setValueAtTime(0,t0);node.gain.linearRampToValueAtTime(peak,t0+a);node.gain.exponentialRampToValueAtTime(.0001,t0+a+d)}
 function thud(at){if(!AC||sfx("choc",{at,vol:.9}))return;const t=AC.currentTime+(at||0),o=AC.createOscillator(),g=AC.createGain();o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(32,t+.5);o.connect(g).connect(master);env(g,t,.005,.9,.8);o.start(t);o.stop(t+1)}
-function cry(at){if(!AC||sfx("pleur",{at,vol:.7}))return;const t=AC.currentTime+(at||0),n=AC.createBufferSource();n.buffer=noiseBuf(1.4);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.Q.value=9;bp.frequency.setValueAtTime(900,t);bp.frequency.linearRampToValueAtTime(1500,t+.25);bp.frequency.linearRampToValueAtTime(700,t+1.1);
+function cry(at){if(!AC||sfx("pleur",{at,vol:1.4}))return;const t=AC.currentTime+(at||0),n=AC.createBufferSource();n.buffer=noiseBuf(1.4);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.Q.value=9;bp.frequency.setValueAtTime(900,t);bp.frequency.linearRampToValueAtTime(1500,t+.25);bp.frequency.linearRampToValueAtTime(700,t+1.1);
   const o=AC.createOscillator();o.type="sawtooth";o.frequency.setValueAtTime(620,t);o.frequency.linearRampToValueAtTime(820,t+.3);o.frequency.linearRampToValueAtTime(480,t+1.1);const og=AC.createGain();
   const g=AC.createGain();n.connect(bp).connect(g);o.connect(og).connect(g);og.gain.value=.05;g.connect(master);env(g,t,.06,.35,1.1);n.start(t);o.start(t);o.stop(t+1.3)}
 function creak(){if(!AC||sfx("armoire",{vol:.8}))return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain(),bp=AC.createBiquadFilter();o.type="sawtooth";bp.type="bandpass";bp.Q.value=14;bp.frequency.value=1200;
@@ -369,7 +369,8 @@ let thoughtTimer=null;
 /* les textes s'écrivent lettre par lettre */
 const typers=new Map();
 function typeText(el,t,cps,done){clearInterval(typers.get(el));el.setAttribute("aria-label",t);el.textContent="";let i=0;if(!t){done&&done();return}
-  const t0=performance.now(),step=()=>{i=Math.min(t.length,Math.floor((performance.now()-t0)/1000*(cps||34))+1);el.textContent=t.slice(0,i);if(i>=t.length){clearInterval(typers.get(el));done&&done()}};
+  const t0=performance.now();let lastTick=0;const step=()=>{i=Math.min(t.length,Math.floor((performance.now()-t0)/1000*(cps||34))+1);el.textContent=t.slice(0,i);
+    if(i-lastTick>=2&&t[i-1]!==" "){lastTick=i;if(AC&&AC.state==="running")sfx("frappe",{vol:.16+Math.random()*.08,rate:.85+Math.random()*.35})}if(i>=t.length){clearInterval(typers.get(el));done&&done()}};
   if(REDUCE){el.textContent=t;done&&done();return}
   typers.set(el,setInterval(step,25))}
 function think(t,ms){const el=$("thought");typeText(el,t);el.classList.add("on");clearTimeout(thoughtTimer);thoughtTimer=setTimeout(()=>el.classList.remove("on"),(ms||3200)+t.length*30)}
@@ -802,6 +803,11 @@ const LID_REST=.6,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
       ir.style.transform="translate("+(mx*34).toFixed(1)+"px,"+(my*24).toFixed(1)+"px)";ir.style.setProperty("--mx",mx.toFixed(3));ir.style.setProperty("--my",my.toFixed(3))}
     requestAnimationFrame(step)}
   addEventListener("resize",()=>lid.drawn=-1);step()})();
+/* sons d'interface : léger whoosh au survol d'un bouton, clic sourd au clic */
+let uiHover=null;
+addEventListener("pointerover",e=>{const b=e.target.closest&&e.target.closest("button");if(!b||b===uiHover||b.disabled)return;uiHover=b;if(AC&&AC.state==="running")sfx("ui_whoosh",{vol:.35,rate:.95+Math.random()*.1})});
+addEventListener("pointerout",e=>{const b=e.target.closest&&e.target.closest("button");if(b&&!b.contains(e.relatedTarget))uiHover=null});
+addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("button");if(b&&AC)sfx("ui_clic",{vol:.7})},true);
 function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resume().catch(()=>{});musicEl.play().then(()=>{["pointerdown","keydown","touchstart"].forEach(ev=>removeEventListener(ev,audioUnlock,true))}).catch(()=>{})}
 ["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,audioUnlock,true));
 audioUnlock();
