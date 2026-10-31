@@ -135,6 +135,8 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 #popbg{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:5}
 #popbg.on{opacity:1;pointer-events:auto}
 .pop-fig::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 48%,transparent 45%,rgba(0,0,0,.55) 75%,rgba(0,0,0,.95) 100%)}
+#pop-faces{position:absolute;inset:0;width:100%;height:100%}
+#pop-faces[hidden]{display:none}
 .pop-take{position:absolute;left:46.6%;top:11.3%;width:40.3%;height:37.9%;border:0;padding:0;background:transparent;cursor:pointer}
 .pop-take:focus-visible{outline:none}
 .pop-take[hidden]{display:none}
@@ -164,7 +166,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
   <div class="thought" id="thought"></div>
   <canvas id="gamelid" hidden aria-hidden="true"></canvas>
   <div id="popbg"></div>
-  <div class="pop" id="pop" role="dialog" aria-live="polite"><div class="pop-fig" id="pop-fig" hidden><img id="pop-img" alt=""><img class="alt" id="pop-img2" alt=""><button class="pop-take" id="pop-take" type="button" aria-label="Take the flashlight" hidden></button></div><div class="pop-cap" id="pop-cap"><p class="pop-k" id="pop-k"></p><p class="pop-t" id="pop-t"></p><div class="pop-a" id="pop-a"></div></div></div>
+  <div class="pop" id="pop" role="dialog" aria-live="polite"><div class="pop-fig" id="pop-fig" hidden><img id="pop-img" alt=""><img class="alt" id="pop-img2" alt=""><canvas id="pop-faces" hidden aria-hidden="true"></canvas><button class="pop-take" id="pop-take" type="button" aria-label="Take the flashlight" hidden></button></div><div class="pop-cap" id="pop-cap"><p class="pop-k" id="pop-k"></p><p class="pop-t" id="pop-t"></p><div class="pop-a" id="pop-a"></div></div></div>
   <p class="help" id="help">Click to walk. Elisa looks toward the mouse (← → or Q / D on the keyboard).</p>
   <div class="turn" id="turn" hidden><button id="b-tl" type="button" aria-label="Turn left">⟲</button><button id="b-tr" type="button" aria-label="Turn right">⟳</button></div>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="caf" color-interpolation-filters="sRGB">
@@ -617,7 +619,8 @@ function buildHotspots(){
     actions:S.cellChest?[]:[{label:"Take the battery",fn:set=>{const lit=takeCell("Chest");set(cellLine(lit),[])}}]}));
   hotspot("etagere","Look at the shelf",[4.5,0.12,0,5.0,0.48,1.4],.7,h=>focusObj(h,{k:"The doll shelf",mood:S.cellShelf?"bof":"",
     img:{src:"poupees.webp",alt:"The shelf: old books, porcelain dolls, a music box, a clock, a snow globe, a candle, and a battery on the middle shelf.",
-      after:"poupees_vide.webp",afterAlt:"The same shelf, without the battery.",taken:S.cellShelf,takeRect:[8.6,42,6.8,15],takeLabel:"Take the battery",
+      after:"poupees_vide.webp",afterAlt:"The same shelf, without the battery.",taken:S.cellShelf,
+      faces:[[.326,.13,.055],[.79,.305,.05],[.153,.67,.055],[.462,.66,.045]],takeRect:[8.6,42,6.8,15],takeLabel:"Take the battery",
       take:set=>{const lit=takeCell("Shelf");set(cellLine(lit),[])}},
     t:S.cellShelf?"The dolls. They’re still watching me.":"The dolls are watching me. Something is on the shelf…"}));
   hotspot("porte","Go out into the hallway",[3.5,0,0,4.5,0.2,2.1],.6,()=>{
@@ -669,7 +672,29 @@ function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=i
 /* ---------- tous les objets : zoom rapide, puis un pop-up qui s’ouvre ---------- */
 let popOnClose=null;
 let popMood="";
-function showPop(k,t,actions,onClose,img,lock,mood){popMood=mood||"";if(!(lock&&!(img&&img.after)))(mood==="non"?humNope:humIn)();const P=$("pop");P.classList.remove("lunge");P.dataset.lock=lock?"1":"";$("pop-k").textContent=k;const fg=$("pop-fig"),tk=$("pop-take");fg.hidden=!img;fg.classList.add("noanim");fg.classList.remove("taken","flash","fadein","lunge");void fg.offsetWidth;fg.classList.remove("noanim");fg.style.removeProperty("--eyes");if(img&&img.eyes)fg.style.setProperty("--eyes",img.eyes);fg.style.setProperty("--fade",(img&&img.fadeS||.8)+"s");tk.hidden=true;tk.onclick=null;
+/* les visages des poupées suivent le curseur : une carte de profondeur (bosses sur chaque visage) déplace l'image localement */
+const dollFX=(()=>{let r=null,u=null,sc,cm,on=false,tgt=new THREE.Vector2(),cur=new THREE.Vector2();const cv=$("pop-faces"),fg=$("pop-fig");
+  function init(){r=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:false});r.setPixelRatio(Math.min(devicePixelRatio,1.5));sc=new THREE.Scene();cm=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+    u={tA:{value:null},tB:{value:null},m:{value:cur},tk:{value:0},F:{value:[]}};
+    sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:u,depthTest:false,
+      vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
+      fragmentShader:`uniform sampler2D tA,tB;uniform vec2 m;uniform float tk;uniform vec3 F[6];varying vec2 vUv;
+      void main(){vec2 uv=vUv,o=vec2(0.);for(int i=0;i<6;i++){vec3 f=F[i];if(f.z<=0.)continue;vec2 d=(vUv-f.xy)*vec2(1.34,1.);float w=exp(-dot(d,d)/(f.z*f.z));
+          // le visage glisse vers le curseur et se « tourne » un peu : plus au centre qu'aux bords
+          o+=w*w*m*f.z*.16;}
+        uv-=o;gl_FragColor=vec4(mix(texture2D(tA,uv).rgb,texture2D(tB,uv).rgb,tk),1.);}`})));
+    fg.addEventListener("pointermove",e=>{const b=fg.getBoundingClientRect();tgt.set(((e.clientX-b.left)/b.width-.5)*2,((e.clientY-b.top)/b.height-.5)*-2)});
+    fg.addEventListener("pointerleave",()=>tgt.set(0,0))}
+  function frame(){if(!on)return;cur.lerp(tgt,.035);if(REDUCE)cur.set(0,0);u.tk.value+=((fg.classList.contains("taken")?1:0)-u.tk.value)*.12;
+    const b=fg.getBoundingClientRect();if(b.width&&(cv.width!==Math.round(b.width*r.getPixelRatio())))r.setSize(b.width,b.height,false);r.render(sc,cm);requestAnimationFrame(frame)}
+  return{start(img){if(!img||!img.faces){this.stop();return}try{if(!r)init()}catch(e){return}
+      const tl=new THREE.TextureLoader(),load=src=>{const t=tl.load(src);t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;return t};
+      u.tA.value=load(img.src);u.tB.value=load(img.after||img.src);u.tk.value=img.taken?1:0;
+      // visages : x, y (0..1, origine en bas à gauche) et rayon
+      const F=img.faces.map(f=>new THREE.Vector3(f[0],1-f[1],f[2]));while(F.length<6)F.push(new THREE.Vector3(0,0,0));u.F.value=F;
+      cur.set(0,0);tgt.set(0,0);cv.hidden=false;if(!on){on=true;requestAnimationFrame(frame)}},
+    stop(){on=false;cv.hidden=true}}})();
+function showPop(k,t,actions,onClose,img,lock,mood){dollFX.start(img);popMood=mood||"";if(!(lock&&!(img&&img.after)))(mood==="non"?humNope:humIn)();const P=$("pop");P.classList.remove("lunge");P.dataset.lock=lock?"1":"";$("pop-k").textContent=k;const fg=$("pop-fig"),tk=$("pop-take");fg.hidden=!img;fg.classList.add("noanim");fg.classList.remove("taken","flash","fadein","lunge");void fg.offsetWidth;fg.classList.remove("noanim");fg.style.removeProperty("--eyes");if(img&&img.eyes)fg.style.setProperty("--eyes",img.eyes);fg.style.setProperty("--fade",(img&&img.fadeS||.8)+"s");tk.hidden=true;tk.onclick=null;
   if(img){$("pop-img").src=img.src;$("pop-img").alt=img.alt;$("pop-img2").src=img.after||"";$("pop-img2").alt=img.afterAlt||"";
     if(img.taken)fg.classList.add("taken");const tr=img.takeRect||[46.6,11.3,40.3,37.9];Object.assign(tk.style,{left:tr[0]+"%",top:tr[1]+"%",width:tr[2]+"%",height:tr[3]+"%"});tk.setAttribute("aria-label",img.takeLabel||"Take the flashlight");
     if(img.take&&!img.taken){tk.hidden=false;tk.onclick=()=>{tk.hidden=true;fg.classList.add("taken");img.take(setPopBody)}}}
@@ -682,7 +707,7 @@ function setPopBody(t,actions){const pt=$("pop-t");pt.hidden=!t;typeText(pt,t,38
   (actions||[]).forEach(x=>{const b=document.createElement("button");b.type="button";b.className="btn primary";b.textContent=x.label;b.onclick=()=>x.fn(setPopBody);a.appendChild(b)});
   const c=document.createElement("button");c.type="button";c.className="btn";c.textContent=(actions&&actions.length)?"Leave it":"Close";c.onclick=closePop;a.appendChild(c)}
 function popOpen(){return $("pop").classList.contains("on")}
-function closePop(){if(!popOpen()||$("pop").dataset.lock)return;humOut(popMood);const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");$("pop").classList.remove("on");const f=popOnClose;popOnClose=null;later(()=>f&&f(),120)}
+function closePop(){if(!popOpen()||$("pop").dataset.lock)return;setTimeout(()=>{if(!popOpen())dollFX.stop()},400);humOut(popMood);const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");$("pop").classList.remove("on");const f=popOnClose;popOnClose=null;later(()=>f&&f(),120)}
 function focusObj(h,o){S.mode="busy";S.path=null;walking=false;hideChip();canvas.style.cursor="default";faceTo(h.userData.center);aimPt.copy(h.userData.center);
   o.onOpen&&o.onOpen();
   eyeClose(650,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");if(o.after)return o.after();
