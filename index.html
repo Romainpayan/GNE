@@ -37,7 +37,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 .turn{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}
 .turn button{width:52px;height:52px;border-radius:50%;font:400 24px/1 var(--f-body);color:var(--ink);background:rgba(10,10,12,.6);border:1px solid var(--line);cursor:pointer;touch-action:none}
 .turn button:active{background:rgba(236,232,223,.12)}
-.screen{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:rgba(3,3,4,.92);padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+.screen{position:absolute;inset:0;z-index:9;display:grid;place-items:center;text-align:center;background:rgba(3,3,4,.92);padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
 .screen[hidden]{display:none}
 .screen .in{max-width:520px;display:grid;gap:18px;justify-items:center}
 /* logo-titre */
@@ -92,7 +92,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 .journal li.lock{color:#4e5056}
 .screen.drawing{background:#000}
 .drawing img{max-height:70vh;max-width:min(520px,86vw);box-shadow:0 10px 60px #000;transform:rotate(-1.5deg)}
-#scare{position:absolute;inset:0;pointer-events:none;opacity:0;display:grid;place-items:center;background:#000}
+#scare{position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;display:grid;place-items:center;background:#000}
 #scare img{width:100%;height:100%;object-fit:cover;transform:scale(1.5);filter:brightness(1.8)}
 #scare.on{opacity:1}
 #scare.on img{animation:jump .6s cubic-bezier(.15,.9,.25,1) forwards,shake .45s steps(9) 1}
@@ -750,7 +750,7 @@ function endDark(){S.mode="busy";hideChip();follow=null;roomDoor(true);
 function endCorridor(){S.mode="busy";hideChip();follow=null;roomDoor(true);
   walkTo(4.0,-0.6,()=>{elisa.visible=false;think("The flashlight lights up the hallway. At the end, a portrait…",3800);
     anim(3000,k=>{$("dark").style.opacity=k},()=>ending("couloir"))})}
-function ending(id){caHold=0;glMax=1;caPulse(1.2);if(AC){sfx("cri_fin",{vol:.8});sfx("cri_enfant",{vol:.75,at:.05})}stopHeart();musicLevel(.5,1.5);droneLevel(.25,1);const e=ENDINGS.find(x=>x.id===id);found.add(id);saveFound();
+function ending(id){$("gamelid").hidden=true;$("popbg").classList.remove("on");caHold=0;glMax=1;caPulse(1.2);if(AC){sfx("cri_fin",{vol:.8});sfx("cri_enfant",{vol:.75,at:.05})}stopHeart();musicLevel(.5,1.5);droneLevel(.25,1);const e=ENDINGS.find(x=>x.id===id);found.add(id);saveFound();
   $("end-n").textContent=e.n;$("end-t").textContent=e.t;
   $("end-s").textContent=id==="couloir"?`End of the prototype. Endings found: ${[...found].filter(x=>x!=="couloir").length} of 4.`:"Elisa wakes up with a start.";
   $("b-again").textContent="Wake up";$("s-end").hidden=false;S.mode="ending"}
