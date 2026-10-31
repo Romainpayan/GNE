@@ -124,6 +124,8 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 .glitch .pop-fig,.glitch #scare-img,.glitch #s-end .in{animation:glitchJ .5s steps(1) 1}
 @keyframes glitchJ{0%{clip-path:inset(30% 0 52% 0);translate:-16px 0}14%{clip-path:inset(70% 0 8% 0);translate:12px 0}28%{clip-path:inset(5% 0 80% 0);translate:-8px 0}42%{clip-path:none;translate:6px 0}56%{clip-path:inset(45% 0 35% 0);translate:-4px 0}70%,100%{clip-path:none;translate:0 0}}
 @media (prefers-reduced-motion:reduce){.glitch .pop-fig,.glitch #scare-img,.glitch #s-end .in{animation:none}}
+#gamelid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}
+#gamelid[hidden]{display:none}
 #popbg{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .5s ease;z-index:5}
 #popbg.on{opacity:1;pointer-events:auto}
 .pop-fig::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 48%,transparent 45%,rgba(0,0,0,.55) 75%,rgba(0,0,0,.95) 100%)}
@@ -154,6 +156,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
   <div class="hud"><button id="b-journal" type="button">Endings</button><button id="b-pause" type="button" hidden>Sleep Apnea</button></div>
   <div class="chip" id="chip"></div>
   <div class="thought" id="thought"></div>
+  <canvas id="gamelid" hidden aria-hidden="true"></canvas>
   <div id="popbg"></div>
   <div class="pop" id="pop" role="dialog" aria-live="polite"><div class="pop-fig" id="pop-fig" hidden><img id="pop-img" alt=""><img class="alt" id="pop-img2" alt=""><button class="pop-take" id="pop-take" type="button" aria-label="Take the flashlight" hidden></button></div><div class="pop-cap" id="pop-cap"><p class="pop-k" id="pop-k"></p><p class="pop-t" id="pop-t"></p><div class="pop-a" id="pop-a"></div></div></div>
   <p class="help" id="help">Click to walk. Elisa looks toward the mouse (← → or Q / D on the keyboard).</p>
@@ -611,32 +614,41 @@ let camBase=null,camTgt=null;
 function camZoom(center,inn,done,zoomTo,ms){if(!camBase){camBase=cam.position.clone();camTgt=target.clone()}
   const from=cam.zoom,to=inn?(zoomTo||2.6):1,p0=cam.position.clone(),p1=inn?camBase.clone().add(center.clone().sub(camTgt)):camBase.clone();
   anim(ms||(inn?900:700),k=>{const e=ease(k);cam.zoom=from+(to-from)*e;cam.position.lerpVectors(p0,p1,e);cam.updateProjectionMatrix()},done)}
+/* paupières en jeu : l'œil se ferme avant un pop-up (à la place du zoom), se rouvre après */
+const LID_WIDE=1.9;
+function drawLidCanvas(cv,k){const W=Math.max(1,Math.round(innerWidth/2)),H=Math.max(1,Math.round(innerHeight/2));if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+  const ctx=cv.getContext("2d");ctx.globalCompositeOperation="source-over";ctx.filter="none";ctx.fillStyle="#000";ctx.fillRect(0,0,W,H);if(k<.01)return;
+  const cy=H*.5,hh=H*.56*k,ext=W*(.02+.09*Math.max(0,k-.8)*5);ctx.globalCompositeOperation="destination-out";ctx.filter="blur("+Math.round(H*.035)+"px)";
+  ctx.beginPath();ctx.moveTo(-ext,cy);ctx.quadraticCurveTo(W/2,cy-hh*2,W+ext,cy);ctx.quadraticCurveTo(W/2,cy+hh*2,-ext,cy);ctx.fill()}
+function eyeLid(to,ms,done){const cv=$("gamelid"),from=to<.5?LID_WIDE:0;cv.hidden=false;if(REDUCE)ms=Math.min(ms,150);
+  anim(ms,k=>drawLidCanvas(cv,from+(to-from)*(to<.5?k*k*(3-2*k):1-Math.pow(1-k,3))),()=>{drawLidCanvas(cv,to);if(to>=LID_WIDE)cv.hidden=true;done&&done()})}
+const eyeClose=(ms,done)=>eyeLid(0,ms,done),eyeOpen=(ms,done)=>{$("popbg").style.transition="none";$("popbg").classList.remove("on");eyeLid(LID_WIDE,ms,done)};
 function inspect(id,h){heart(66,0);musicLevel(.4,.8);
-  // fondu au noir lent, dès le clic, pendant le zoom
-  const bg=$("popbg");bg.style.transition="opacity 1.4s ease-in";bg.classList.add("on");S.mode="busy";S.path=null;walking=false;faceTo(h.userData.center);aimPt.copy(h.userData.center);
-  camZoom(h.userData.center,true,()=>{
+  // l'œil se ferme tout de suite (à la place du zoom)
+  S.mode="busy";S.path=null;walking=false;faceTo(h.userData.center);aimPt.copy(h.userData.center);
+  eyeClose(900,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");
     if(!S.hasLamp)return scarePop(id);
     S.monsters=false;setEyes("none");if(id==="souslit")underShadow.visible=false;
     const pl=id==="placard";
     later(()=>{
-      showPop(pl?"The wardrobe":"Under the bed","",null,()=>camZoom(null,false,()=>{S.mode="play"},0,450),
-        pl?{src:"armoire_monstre.webp",fade:true,delay:500,alt:"In the half-open wardrobe, a hooded figure with glowing white eyes.",
+      showPop(pl?"The wardrobe":"Under the bed","",null,()=>eyeOpen(800,()=>{S.mode="play"}),
+        pl?{src:"armoire_monstre.webp",fade:true,delay:150,alt:"In the half-open wardrobe, a hooded figure with glowing white eyes.",
             after:"armoire_lampe.webp",afterAlt:"The wardrobe lit by the flashlight: coats, a hooded coat, a hat on the shelf, boots."}
-          :{src:"lit_monstre.webp",fade:true,delay:500,alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room.",
+          :{src:"lit_monstre.webp",fade:true,delay:150,alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room.",
             after:"lit_lampe.webp",afterAlt:"Under the bed, lit by the flashlight: a drum, a xylophone, two springs, marbles, a little train, crayons."},true,"bof");
       // une demi-seconde dans le noir… puis clic de la lampe, la lumière révèle ce que c’était vraiment
       later(()=>heartTo(150,900),900);
       later(()=>{torchOn();stopHeart();musicLevel(1,1.5);const fg=$("pop-fig");fg.classList.add("flash","taken");$("pop").dataset.lock="";
-        later(()=>setPopBody(pl?"Just coats. And Daddy’s hat.":"Just my toys. The drum, the marbles, my old train.",[]),350)},1800)},300)},2.6,600)}
+        later(()=>setPopBody(pl?"Just coats. And Daddy’s hat.":"Just my toys. The drum, the marbles, my old train.",[]),350)},1800)},300)})}
 /* sans la lampe : le monstre apparaît dans le pop-up, fixe l’enfant, puis se jette sur elle */
-function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=id==="placard";musicLevel(.25,.4);later(()=>heartTo(170,1300),2200);
+function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=id==="placard";musicLevel(.25,.4);later(()=>heartTo(170,1300),1600);
   showPop(pl?"The wardrobe":"Under the bed","",null,null,
-    pl?{src:"armoire_monstre.webp",fade:true,fadeS:2.1,delay:800,eyes:"44.5% 26%",alt:"In the half-open wardrobe, a hooded figure with glowing white eyes."}
-      :{src:"lit_monstre.webp",fade:true,fadeS:2.1,delay:800,eyes:"41% 28.5%",alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room."},true);
+    pl?{src:"armoire_monstre.webp",fade:true,fadeS:2.1,delay:200,eyes:"44.5% 26%",alt:"In the half-open wardrobe, a hooded figure with glowing white eyes."}
+      :{src:"lit_monstre.webp",fade:true,fadeS:2.1,delay:200,eyes:"41% 28.5%",alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room."},true);
   // fondu (0,8 s), un temps très court… puis gros plan éclair sur les yeux
   // coupure franche sur le monstre en plein écran, avec son cri
-  later(()=>{caPulse(1.6);if(!(AC&&sfx(pl?"sursaut_armoire":"sursaut_lit")))stinger();const sc=$("scare");$("scare-img").src=pl?"sursaut_armoire.webp":"sursaut_lit.webp";sc.classList.add("on");const P=$("pop");P.dataset.lock="";P.classList.remove("on","lunge");const bg=$("popbg");bg.style.transition="";bg.classList.remove("on")},3600);
-  later(()=>{stopHeart();$("scare").classList.remove("on");ending(id)},4150)}
+  later(()=>{caPulse(1.6);if(!(AC&&sfx(pl?"sursaut_armoire":"sursaut_lit")))stinger();const sc=$("scare");$("scare-img").src=pl?"sursaut_armoire.webp":"sursaut_lit.webp";sc.classList.add("on");const P=$("pop");P.dataset.lock="";P.classList.remove("on","lunge");const bg=$("popbg");bg.style.transition="";bg.classList.remove("on")},3000);
+  later(()=>{stopHeart();$("scare").classList.remove("on");ending(id)},3550)}
 /* ---------- tous les objets : zoom rapide, puis un pop-up qui s’ouvre ---------- */
 let popOnClose=null;
 let popMood="";
@@ -653,13 +665,13 @@ function setPopBody(t,actions){const pt=$("pop-t");pt.hidden=!t;typeText(pt,t,38
   const c=document.createElement("button");c.type="button";c.className="btn";c.textContent=(actions&&actions.length)?"Leave it":"Close";c.onclick=closePop;a.appendChild(c)}
 function popOpen(){return $("pop").classList.contains("on")}
 function closePop(){if(!popOpen()||$("pop").dataset.lock)return;humOut(popMood);const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");$("pop").classList.remove("on");const f=popOnClose;popOnClose=null;later(()=>f&&f(),120)}
-function focusObj(h,o){const bg=$("popbg");bg.style.transition="opacity .8s ease-in";bg.classList.add("on");S.mode="busy";S.path=null;walking=false;hideChip();canvas.style.cursor="default";faceTo(h.userData.center);aimPt.copy(h.userData.center);
+function focusObj(h,o){S.mode="busy";S.path=null;walking=false;hideChip();canvas.style.cursor="default";faceTo(h.userData.center);aimPt.copy(h.userData.center);
   o.onOpen&&o.onOpen();
-  camZoom(h.userData.center,true,()=>{if(o.after)return o.after();
-    showPop(o.k,o.t,o.actions,()=>{o.onClose&&o.onClose();camZoom(null,false,()=>{if(S.mode==="busy")S.mode="play"},0,420)},o.img?Object.assign({delay:200},o.img):null,false,typeof o.mood==="function"?o.mood():o.mood)},o.zoom||2.1,750)}
+  eyeClose(650,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");if(o.after)return o.after();
+    showPop(o.k,o.t,o.actions,()=>{o.onClose&&o.onClose();eyeOpen(650,()=>{if(S.mode==="busy")S.mode="play"})},o.img?Object.assign({delay:120},o.img):null,false,typeof o.mood==="function"?o.mood():o.mood)})}
 function preloadArt(){["sursaut_lit","sursaut_armoire","tiroir","tiroir_vide","lit_lampe","lit_monstre","armoire_lampe","armoire_monstre"].forEach(n=>new Image().src=n+".webp")}  // préchargée : le pop-up s’ouvre sans attendre
 function takeLamp(){S.hasLamp=true;if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=false;click();torch.intensity=55;$("inv").classList.add("on")}
-function closeDrawing(){if($("s-drawing").hidden)return;$("s-drawing").hidden=true;const bg=$("popbg");bg.style.transition="";bg.classList.remove("on");camZoom(null,false,()=>{S.mode="play";think("The path to the doghouse. Did I draw that?")},0,420)}
+function closeDrawing(){if($("s-drawing").hidden)return;$("s-drawing").hidden=true;eyeOpen(650,()=>{S.mode="play";think("The path to the doghouse. Did I draw that?")},0,420)}
 
 /* ---------- curseur « œil » au survol des endroits à fouiller (pas le lit, pas la porte) ---------- */
 const SEARCH=["bureau","dessin","placard","souslit","fenetre","coffre","etagere"];
@@ -669,7 +681,7 @@ const EYE_CURSOR='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http
 let wakeIris=false;const _ip=new THREE.Vector3();
 function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
-function prologue(first){caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
+function prologue(first){$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
   setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.path=null;S.onArrive=null;
   if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");
@@ -743,7 +755,7 @@ function ending(id){caHold=0;glMax=1;caPulse(1.2);if(AC){sfx("cri_fin",{vol:.8})
   $("end-s").textContent=id==="couloir"?`End of the prototype. Endings found: ${[...found].filter(x=>x!=="couloir").length} of 4.`:"Elisa wakes up with a start.";
   $("b-again").textContent="Wake up";$("s-end").hidden=false;S.mode="ending"}
 $("b-again").onclick=()=>{$("s-end").hidden=true;prologue(false)};
-function toTitle(){paused=false;["s-pause","s-end","s-journal","s-drawing"].forEach(x=>$(x).hidden=true);$("pop").classList.remove("on");$("popbg").classList.remove("on");$("scare").classList.remove("on");
+function toTitle(){$("gamelid").hidden=true;paused=false;["s-pause","s-end","s-journal","s-drawing"].forEach(x=>$(x).hidden=true);$("pop").classList.remove("on");$("popbg").classList.remove("on");$("scare").classList.remove("on");
   clearTimers();stopHeart();caHold=0;crawl.mesh.visible=false;setEyes("none");S.mode="title";S.path=null;walking=false;
   if(AC){try{AC.resume()}catch(e){}}musicLevel(.6,1);droneLevel(.2,1);$("thought").classList.remove("on");
   $("dark").style.transition="opacity .6s";$("dark").style.opacity=1;$("closing").style.opacity=0;$("b-pause").hidden=true;$("turn").hidden=true;$("s-title").hidden=false;
