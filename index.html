@@ -309,7 +309,7 @@ ceil.position.copy(V(2.5,2.5,2.73));ceil.castShadow=true;scene.add(ceil);
 let AC=null,master=null,droneG=null,heartTimer=null;
 function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop()}catch(e){AC=null}}
 /* sons enregistrés (générés avec Sunra / ElevenLabs) : chargés au démarrage, sinon on garde les sons de synthèse */
-const SFX_FILES=["ui_whoosh","ui_clic","frappe","cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
+const SFX_FILES=["ui_clic","cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
 function loadSfx(){SFX_FILES.forEach(n=>fetch("sons/"+n+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).then(buf=>{SFX[n]=buf;if(n==="nuit")nightLoop();if(n==="musique")musicLoop()}).catch(()=>{}))}
 function sfx(n,o){if(!AC||!SFX[n])return false;o=o||{};const src=AC.createBufferSource();src.buffer=SFX[n];src.playbackRate.value=o.rate||1;
   const g=AC.createGain();g.gain.value=o.vol==null?1:o.vol;src.connect(g).connect(o.dest||master);src.start(AC.currentTime+(o.at||0));return true}
@@ -370,7 +370,7 @@ let thoughtTimer=null;
 const typers=new Map();
 function typeText(el,t,cps,done){clearInterval(typers.get(el));el.setAttribute("aria-label",t);el.textContent="";let i=0;if(!t){done&&done();return}
   const t0=performance.now();let lastTick=0;const step=()=>{i=Math.min(t.length,Math.floor((performance.now()-t0)/1000*(cps||34))+1);el.textContent=t.slice(0,i);
-    if(i-lastTick>=2&&t[i-1]!==" "){lastTick=i;if(AC&&AC.state==="running")sfx("frappe",{vol:.16+Math.random()*.08,rate:.85+Math.random()*.35})}if(i>=t.length){clearInterval(typers.get(el));done&&done()}};
+    if(i-lastTick>=2&&t[i-1]!==" "){lastTick=i;typeTick()}if(i>=t.length){clearInterval(typers.get(el));done&&done()}};
   if(REDUCE){el.textContent=t;done&&done();return}
   typers.set(el,setInterval(step,25))}
 function think(t,ms){const el=$("thought");typeText(el,t);el.classList.add("on");clearTimeout(thoughtTimer);thoughtTimer=setTimeout(()=>el.classList.remove("on"),(ms||3200)+t.length*30)}
@@ -805,9 +805,20 @@ const LID_REST=.6,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
   addEventListener("resize",()=>lid.drawn=-1);step()})();
 /* sons d'interface : léger whoosh au survol d'un bouton, clic sourd au clic */
 let uiHover=null;
-addEventListener("pointerover",e=>{const b=e.target.closest&&e.target.closest("button");if(!b||b===uiHover||b.disabled)return;uiHover=b;if(AC&&AC.state==="running")sfx("ui_whoosh",{vol:.35,rate:.95+Math.random()*.1})});
+addEventListener("pointerover",e=>{const b=e.target.closest&&e.target.closest("button");if(!b||b===uiHover||b.disabled)return;uiHover=b;whoosh()});
 addEventListener("pointerout",e=>{const b=e.target.closest&&e.target.closest("button");if(b&&!b.contains(e.relatedTarget))uiHover=null});
 addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("button");if(b&&AC)sfx("ui_clic",{vol:.7})},true);
+let uiNoise=null;
+function whoosh(){if(!AC||AC.state!=="running")return;if(!uiNoise)uiNoise=noiseBuf(1);const t=AC.currentTime,n=AC.createBufferSource(),bp=AC.createBiquadFilter(),g=AC.createGain();
+  n.buffer=uiNoise;bp.type="bandpass";bp.Q.value=.7;bp.frequency.setValueAtTime(500,t);bp.frequency.exponentialRampToValueAtTime(2600,t+.32);bp.frequency.exponentialRampToValueAtTime(1300,t+.6);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09,t+.2);g.gain.exponentialRampToValueAtTime(.0005,t+.62);n.connect(bp).connect(g).connect(master);n.start(t,Math.random()*.3);n.stop(t+.65)}
+function typeTick(){if(!AC||AC.state!=="running")return;if(!uiNoise)uiNoise=noiseBuf(1);const t=AC.currentTime,n=AC.createBufferSource(),hp=AC.createBiquadFilter(),bp=AC.createBiquadFilter(),g=AC.createGain();
+  n.buffer=uiNoise;hp.type="highpass";hp.frequency.value=1200;bp.type="peaking";bp.frequency.value=2600+Math.random()*1400;bp.gain.value=8;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22+Math.random()*.08,t+.002);g.gain.exponentialRampToValueAtTime(.0005,t+.045);
+  n.connect(hp).connect(bp).connect(g).connect(master);n.start(t,Math.random()*.9);n.stop(t+.06);
+  // petit « tac » grave du marteau
+  const o=AC.createOscillator(),og=AC.createGain();o.frequency.setValueAtTime(190+Math.random()*40,t);o.frequency.exponentialRampToValueAtTime(90,t+.03);
+  og.gain.setValueAtTime(.12,t);og.gain.exponentialRampToValueAtTime(.0005,t+.035);o.connect(og).connect(master);o.start(t);o.stop(t+.04)}
 function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resume().catch(()=>{});musicEl.play().then(()=>{["pointerdown","keydown","touchstart"].forEach(ev=>removeEventListener(ev,audioUnlock,true))}).catch(()=>{})}
 ["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,audioUnlock,true));
 audioUnlock();
