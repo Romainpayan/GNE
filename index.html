@@ -612,11 +612,13 @@ function buildHotspots(){
     onOpen:()=>{drawer(true);drawerSnd()},onClose:()=>{drawer(false);if(AC&&!sfx("tiroir_ferme",{vol:.85}))drawerSnd()}}));
   hotspot("dessin","Look at the drawing",[0,0.8,1.1,0.12,1.35,1.8],1.0,h=>focusObj(h,{zoom:2.3,after:()=>{$("s-drawing").hidden=false;$("b-dclose").focus({preventScroll:true})}}));
   hotspot("placard","Open the wardrobe",[0,3.34,0,0.55,4.46,2.0],.6,()=>inspect("placard",hot.find(h=>h.userData.id==="placard")));
-  hotspot("fenetre","Look outside",[0,2.2,1.0,0.15,3.0,2.1],1.0,h=>focusObj(h,{k:"The window",t:"The moon. The garden is pitch black.",zoom:2.2,mood:"bof"}));
+  hotspot("fenetre","Look outside",[0,2.2,1.0,0.15,3.0,2.1],1.0,h=>focusObj(h,{k:"The window",t:"The garden. The doghouse… the chain is empty.",zoom:2.2,mood:"bof",img:{src:"fenetre.webp",alt:"Through the misty window: the garden at night, a doghouse with an empty chain, laundry on a line, a garden hose in the grass."}}));
   hotspot("doudou","Take Bunny",[1.68,0.72,0.55,2.02,1.08,0.98],.95,h=>focusObj(h,{k:"Bunny",t:"Bunny is still asleep. I’ll be right back.",zoom:2.6}));
   hotspot("coffre","Search the toy chest",[3.8,4.0,0,4.6,4.8,0.8],.6,h=>focusObj(h,{k:"The toy chest",mood:S.cellChest?"bof":"",
-    t:S.cellChest?"My toys. Nothing else in there.":"Under my toys… a battery, from my old robot.",
-    actions:S.cellChest?[]:[{label:"Take the battery",fn:set=>{const lit=takeCell("Chest");set(cellLine(lit),[])}}]}));
+    img:{src:"coffre.webp",alt:"The open toy chest: a wooden horse, a duck, blocks, a puppet, a clown, a jack-in-the-box, a train, a drum, and a battery wedged between the toys.",
+      after:"coffre_vide.webp",afterAlt:"The same toy chest, without the battery.",taken:S.cellChest,takeRect:[17.2,49.5,11.6,13],takeLabel:"Take the battery",
+      take:set=>{const lit=takeCell("Chest");set(cellLine(lit),[])}},
+    t:S.cellChest?"My toys. Nothing else in there.":"My old toys… something is stuck between them."}));
   hotspot("etagere","Look at the shelf",[4.5,0.12,0,5.0,0.48,1.4],.7,h=>focusObj(h,{k:"The doll shelf",mood:S.cellShelf?"bof":"",
     img:{src:"poupees.webp",alt:"The shelf: old books, porcelain dolls, a music box, a clock, a snow globe, a candle, and a battery on the middle shelf.",
       after:"poupees_vide.webp",afterAlt:"The same shelf, without the battery.",taken:S.cellShelf,
@@ -679,10 +681,14 @@ const dollFX=(()=>{let r=null,u=null,sc,cm,on=false,tgt=new THREE.Vector2(),cur=
     sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:u,depthTest:false,
       vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}",
       fragmentShader:`uniform sampler2D tA,tB;uniform vec2 m;uniform float tk;uniform vec3 F[6];varying vec2 vUv;
-      void main(){vec2 uv=vUv,o=vec2(0.);for(int i=0;i<6;i++){vec3 f=F[i];if(f.z<=0.)continue;vec2 d=(vUv-f.xy)*vec2(1.34,1.);float w=exp(-dot(d,d)/(f.z*f.z));
+      vec3 smp(vec2 uv){return mix(texture2D(tA,uv).rgb,texture2D(tB,uv).rgb,tk);}
+      void main(){vec2 uv=vUv,o=vec2(0.);float W=0.;for(int i=0;i<6;i++){vec3 f=F[i];if(f.z<=0.)continue;vec2 d=(vUv-f.xy)*vec2(1.34,1.);float w=exp(-dot(d,d)/(f.z*f.z));
           // le visage glisse vers le curseur et se « tourne » un peu : plus au centre qu'aux bords
-          o+=w*w*m*f.z*.16;}
-        uv-=o;gl_FragColor=vec4(mix(texture2D(tA,uv).rgb,texture2D(tB,uv).rgb,tk),1.);}`})));
+          o+=w*w*m*f.z*.16;W+=w;}
+        uv-=o;
+        // légère aberration chromatique qui suit la parallaxe, plus forte sur les visages
+        vec2 ab=m*(.0008+min(W,1.)*.0045);
+        gl_FragColor=vec4(smp(uv+ab).r,smp(uv).g,smp(uv-ab).b,1.);}`})));
     fg.addEventListener("pointermove",e=>{const b=fg.getBoundingClientRect();tgt.set(((e.clientX-b.left)/b.width-.5)*2,((e.clientY-b.top)/b.height-.5)*-2)});
     fg.addEventListener("pointerleave",()=>tgt.set(0,0))}
   function frame(){if(!on)return;cur.lerp(tgt,.035);if(REDUCE)cur.set(0,0);u.tk.value+=((fg.classList.contains("taken")?1:0)-u.tk.value)*.12;
@@ -712,7 +718,7 @@ function focusObj(h,o){S.mode="busy";S.path=null;walking=false;hideChip();canvas
   o.onOpen&&o.onOpen();
   eyeClose(650,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");if(o.after)return o.after();
     showPop(o.k,o.t,o.actions,()=>{o.onClose&&o.onClose();eyeOpen(650,()=>{if(S.mode==="busy")S.mode="play"})},o.img?Object.assign({delay:120},o.img):null,false,typeof o.mood==="function"?o.mood():o.mood)})}
-function preloadArt(){["sursaut_lit","sursaut_armoire","tiroir","tiroir_vide","lit_lampe","lit_monstre","armoire_lampe","armoire_monstre","poupees","poupees_vide"].forEach(n=>new Image().src=n+".webp")}  // préchargée : le pop-up s’ouvre sans attendre
+function preloadArt(){["sursaut_lit","sursaut_armoire","tiroir","tiroir_vide","lit_lampe","lit_monstre","armoire_lampe","armoire_monstre","poupees","poupees_vide","coffre","coffre_vide","fenetre"].forEach(n=>new Image().src=n+".webp")}  // préchargée : le pop-up s’ouvre sans attendre
 function invLabel(){const el=$("inv");if(!S.gotLamp&&!S.cells){el.classList.remove("on");return}el.classList.add("on");
   el.textContent=S.hasLamp?"Flashlight":(S.gotLamp?"Flashlight (no batteries)":"")+(S.gotLamp&&S.cells?" · ":"")+(S.cells?"Batteries "+S.cells+"/2":"")}
 /* la lampe ne marche qu'avec ses deux piles */
