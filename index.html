@@ -593,6 +593,8 @@ function setEyes(where){if(where!=="none"&&where!==S.eyes)caPulse(.5);S.eyes=whe
 
 /* ---------- objets interactifs ---------- */
 const hot=[];let hotGroup=new THREE.Group();scene.add(hotGroup);
+/* où Elisa se place pour les meubles collés au mur (toujours devant, jamais derrière ou sur le côté) */
+const STAND={placard:[.85,4.15],bureau:[1.0,1.15],etagere:[4.75,.85],dessin:[1.05,1.0],fenetre:[.6,2.6]};
 function hotspot(id,verb,box,reach,act){const[x0,y0,z0,x1,y1,z1]=box;const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,z1-z0,y1-y0),new THREE.MeshBasicMaterial());
   m.position.copy(V((x0+x1)/2,(y0+y1)/2,(z0+z1)/2));m.visible=false;m.userData={id,verb,box,reach,act,center:V((x0+x1)/2,(y0+y1)/2,z1)};hotGroup.add(m);hot.push(m)}
 function distToHot(h){const b=h.userData.box,[x,y]=elisaXY();return Math.hypot(Math.max(b[0]-x,0,x-b[3]),Math.max(b[1]-y,0,y-b[4]))}
@@ -918,7 +920,7 @@ canvas.addEventListener("pointerdown",e=>{setPtr(e);if(paused)return;
   if(S.mode==="wake"){stretch();return}
   if(S.mode!=="play")return;const h=pickHot();
   if(h){hideChip();if(distToHot(h)<=h.userData.reach){S.path=null;walking=false;arrive(h);return}
-    const b=h.userData.box,[x,y]=elisaXY();goTo(Math.min(b[3],Math.max(b[0],x)),Math.min(b[4],Math.max(b[1],y)),h);return}
+    const b=h.userData.box,[x,y]=elisaXY(),st=STAND[h.userData.id];if(st)goTo(st[0],st[1],h);else goTo(Math.min(b[3],Math.max(b[0],x)),Math.min(b[4],Math.max(b[1],y)),h);return}
   const p=floorPoint();if(p)goTo(p[0],p[1],null)});
 chip.addEventListener("click",()=>{if(S.mode==="wake"&&!paused)stretch()});
 /* tourner sur place : flèches gauche/droite, Q/D, ou les boutons à l’écran */
