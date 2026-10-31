@@ -479,7 +479,7 @@ gltf().parse(glbBuffer(),"",g=>{
       o.castShadow=true;o.receiveShadow=true});
     ge.scene.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(ge.scene),sz=bb.getSize(new THREE.Vector3()),K=.83/sz.y;
     const norm=new THREE.Group();norm.scale.setScalar(K);norm.position.set(-(bb.min.x+bb.max.x)/2*K,-bb.min.y*K,-(bb.min.z+bb.max.z)/2*K);norm.add(ge.scene);
-    const root=new THREE.Group();root.add(norm);grainify(norm,3.0,true,gOriginElisa);
+    const root=new THREE.Group();root.scale.setScalar(.9);root.add(norm);   // 10 % plus petitegrainify(norm,3.0,true,gOriginElisa);
     {const prev=M.leg.onBeforeCompile;M.leg.onBeforeCompile=sh=>{prev&&prev(sh);
       sh.fragmentShader=sh.fragmentShader.replace("#include <color_fragment>","diffuseColor.rgb*=vColor.r>"+SOCK.toFixed(3)+"?1.:.47;")}}elisa.add(root);
     elisa.position.copy(V(2.82,1.2,0));elisa.rotation.y=Math.PI/2;elisa.updateMatrixWorld(true);
@@ -491,6 +491,8 @@ gltf().parse(glbBuffer(),"",g=>{
     const body=new THREE.Group();root.add(body);
     rig={amp:0,body,legR:pivot("RIGHT_LEG",top),legL:pivot("LEFT-LEG",top),
       armR:pivot("RIGHT_ARM",b=>shoulder(b,1)),armL:pivot("LEFT_ARM",b=>shoulder(b,-1)),head:pivot("HEAD",b=>new THREE.Vector3((b.min.x+b.max.x)/2,b.min.y+.03,(b.min.z+b.max.z)/2))};
+    // la robe pivote depuis l'encolure : elle se raccourcit quand Elisa est assise (les jambes ne la traversent plus)
+    rig.dress=pivot("BODY",top);
     root.updateMatrixWorld(true);body.attach(norm);
     const hand=at("RIGHT_ARM",b=>new THREE.Vector3((b.min.x+b.max.x)/2,Math.min(b.min.y,b.max.y)+.02,Math.max(b.min.z,b.max.z)));
     // la lampe tenue dans une main : petite lueur
@@ -965,8 +967,13 @@ function animateRig(dt){if(!rig)return;
   if(walking)walkPhase+=dt*10.8;const amp=walking?1:0;rig.amp+=(amp-rig.amp)*Math.min(1,dt*10);
   const s=Math.sin(walkPhase)*rig.amp;
   const sit=rig.sit||0;rig.legL.rotation.x=s*.55-sit*1.45;rig.legR.rotation.x=-s*.55-sit*1.45;rig.armL.rotation.x=-s*.38;rig.armR.rotation.x=s*.38;
-  const bob=Math.abs(Math.sin(walkPhase))*.012*rig.amp;[rig.body,rig.head,rig.armL,rig.armR].forEach(g=>{if(!g)return;g.userData.y0??=g.position.y;g.position.y=g.userData.y0+bob});
-  if(rig.head){rig.head.rotation.z=Math.sin(walkPhase*.5)*.04*rig.amp;rig.head.rotation.x=sit*-.08}}
+  const bob=Math.abs(Math.sin(walkPhase))*.012*rig.amp;[rig.body,rig.head,rig.armL,rig.armR,rig.dress].forEach(g=>{if(!g)return;g.userData.y0??=g.position.y;g.position.y=g.userData.y0+bob});
+  if(rig.dress)rig.dress.scale.y=1-.4*sit;
+  // la tête suit la souris, sans jamais tourner plus qu'un regard par-dessus l'épaule
+  let yaw=0;if(lookPt&&S.mode==="play"&&!paused){const dx=lookPt.x-elisa.position.x,dz=lookPt.z-elisa.position.z;
+    if(Math.hypot(dx,dz)>.1){yaw=Math.atan2(dx,dz)-elisa.rotation.y;yaw=Math.atan2(Math.sin(yaw),Math.cos(yaw));yaw=Math.max(-.75,Math.min(.75,yaw))}}
+  rig.yaw=(rig.yaw||0)+(yaw-(rig.yaw||0))*Math.min(1,dt*8);
+  if(rig.head){rig.head.rotation.y=rig.yaw;rig.head.rotation.z=Math.sin(walkPhase*.5)*.04*rig.amp;rig.head.rotation.x=sit*-.08}}
 
 /* ---------- pointeur ---------- */
 const ray=new THREE.Raycaster(),ptr=new THREE.Vector2(),floor=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -1016,7 +1023,9 @@ function loop(now){const dt=Math.min(.1,(now-last)/1000);last=now;
   if(ready&&!paused){tickClock(dt);walking=false;
     turning(dt);if(S.path)pathMove(dt);
     if(lookPt&&!walking&&S.mode==="play"){const dx=lookPt.x-elisa.position.x,dz=lookPt.z-elisa.position.z;
-      if(Math.hypot(dx,dz)>.15){let da=Math.atan2(dx,dz)-elisa.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));elisa.rotation.y+=da*Math.min(1,dt*9)}}
+      if(Math.hypot(dx,dz)>.15){let da=Math.atan2(dx,dz)-elisa.rotation.y;da=Math.atan2(Math.sin(da),Math.cos(da));
+        // la tête prend les petits angles ; le corps ne suit que pour regarder plus loin
+        const ex=Math.sign(da)*Math.max(0,Math.abs(da)-.55);elisa.rotation.y+=ex*Math.min(1,dt*5)}}
     animateRig(dt);gOriginElisa.value.copy(elisa.position);
     // les monstres apparaissent là où Elisa ne regarde pas, jusqu’à ce qu’elle aille voir de près
     if(S.monsters&&S.mode==="play"){const a=lookAt(V(0.3,3.9,1.0)),b=lookAt(V(2.2,1.2,0.1));let w=S.eyes;
