@@ -8,11 +8,11 @@
 <title>Elisa’s Room</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Public+Sans:wght@400;500;600&family=Cinzel:wght@900&family=Vampiro+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
 <style>
 /* Plein écran : la scène 3D, puis des calques HTML (grain, vignette, pensées, fins). Thème unique sombre. */
-:root{--bg:#060606;--ink:#ebebeb;--muted:#8f8f8f;--line:#2b2b2b;--red:#a3a3a3;
-  --f-display:"IM Fell English",Georgia,serif;--f-body:"Public Sans",system-ui,sans-serif;color-scheme:dark}
+:root{--bg:#000;--ink:#ff0000;--muted:#ff0000;--line:rgba(255,0,0,.35);--red:#ff0000;
+  --f-display:"Special Elite","Courier New",monospace;--f-body:"Special Elite","Courier New",monospace;color-scheme:dark}
 html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden}
 body{font-family:var(--f-body);font-size:15px;-webkit-user-select:none;user-select:none}
 #app{position:fixed;inset:0}
@@ -22,7 +22,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 #dark{position:absolute;inset:0;pointer-events:none;background:#000;opacity:1;transition:opacity 1.6s ease}
 #closing{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle at var(--cx,50%) var(--cy,55%),transparent var(--r,70%),#000 calc(var(--r,70%) + var(--soft,18%)))}
 .thought{position:absolute;left:50%;bottom:calc(32px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:min(560px,calc(100% - 32px));text-align:center;
-  font:italic 400 clamp(19px,2.6vw,24px)/1.3 var(--f-display);color:var(--ink);text-shadow:0 2px 12px #000;opacity:0;transition:opacity .5s;pointer-events:none}
+  font:400 clamp(19px,2.6vw,24px)/1.3 var(--f-display);color:var(--ink);text-shadow:0 2px 12px #000;opacity:0;transition:opacity .5s;pointer-events:none}
 .thought.on{opacity:1}
 .chip{position:absolute;transform:translate(-50%,-130%);font:600 12px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:#0b0b0c;background:var(--ink);
   padding:7px 11px;border-radius:999px;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;z-index:5}
@@ -40,25 +40,41 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 .screen{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:rgba(3,3,4,.92);padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
 .screen[hidden]{display:none}
 .screen .in{max-width:520px;display:grid;gap:18px;justify-items:center}
-/* titre : « Good Night » en script (Vampiro One) posé sur « ELISA » en capitales romaines (Cinzel Black), rouge un peu usé */
-.title{position:relative;display:inline-block;margin:0 0 .1em;font-size:clamp(64px,14.5vw,200px);line-height:1;color:#d0392e;
-  text-shadow:0 0 .12em rgba(255,40,25,.55),0 0 .4em rgba(220,20,10,.45),0 0 1em rgba(170,0,0,.35)}
-.title .t-main{display:block;font:900 1em/1 "Cinzel",var(--f-display);letter-spacing:-.015em;padding-top:.32em;}
-.title .t-cap{font-size:1.28em;line-height:0}
-.title .t-sub{position:absolute;left:28%;top:-.1em;z-index:1;font:400 .36em/1 "Vampiro One",cursive;white-space:nowrap;opacity:.96}
+/* logo-titre */
+.title{margin:0;line-height:0}
+.title img{width:min(46vw,620px,62vh);height:auto;display:block}
 /* écran titre : la maison dans le brouillard ; le lampadaire grésille de temps en temps */
 #s-title{background:#000;overflow:hidden}
 #s-title .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;pointer-events:none}
 #s-title .bg.lit{transition:opacity .06s linear}
 #s-title .bg.lit.off{opacity:0}
-#s-title::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.15) 40%,rgba(0,0,0,.6) 100%)}
+/* l'œil : iris et pupille en transparence derrière le titre, paupières en vignettage (canvas) */
+#s-title .iris{position:absolute;left:50%;top:47%;width:min(58vh,46vw);aspect-ratio:1;translate:-50% -50%;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(0,0,0,.42) 0 30%,rgba(0,0,0,.1) 31% 62%,rgba(0,0,0,.22) 66%,transparent 71%);filter:blur(6px);transition:scale .9s cubic-bezier(.2,.8,.2,1)}
+#s-title .iris::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.55) 0 22%,transparent 30%);transition:scale .7s cubic-bezier(.2,.8,.2,1)}
+#s-title.peek .iris::after{scale:.72}
+#s-title.closing .iris::after{scale:1.35}
+#s-title .in,#s-title .cw{transition:opacity .7s ease-in}
+#s-title.closing .in,#s-title.closing .cw{opacity:0}
+#eyelid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #s-title .in{position:relative;z-index:1;max-width:min(1200px,94vw);width:100%;justify-items:center}
-#s-title .sub,#s-title .cw{margin-inline:auto}
-#s-title .sub,#s-title .cw{text-shadow:0 2px 12px #000;color:#c9c9c9}
+#s-title .in{gap:clamp(18px,4vh,40px)}
+#s-title .cw{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:auto;text-align:center;z-index:2}
+/* bouton Wake-Up : un arc de paupière sous le mot ; au survol l'œil s'ouvre en amande blanche */
+.wake{position:relative;width:220px;height:84px;border:0;padding:0;background:none;cursor:pointer;font:400 24px/1 var(--f-body);color:#ff0000;-webkit-tap-highlight-color:transparent}
+.wake svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.wake .lid-top{transform-origin:50% 50%;transform:scaleY(0);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.wake .white{opacity:0;transition:opacity .35s}
+.wake .label{position:relative;top:-4px}
+.wake:hover .lid-top,.wake:focus-visible .lid-top,.wake.open .lid-top{transform:scaleY(1)}
+.wake:hover .white,.wake:focus-visible .white,.wake.open .white{opacity:1}
+.wake:focus-visible{outline:none}
+.wake:disabled{cursor:progress;opacity:.7}
+@media (prefers-reduced-motion:reduce){.wake .lid-top,.wake .white{transition:none}}
 .sub{color:var(--muted);margin:0;max-width:44ch;line-height:1.55}
-.cw{font-size:12.5px;color:#6f7177;max-width:46ch;line-height:1.5;margin:0}
-.btn.primary{background:var(--ink);color:#0b0b0c;border-color:var(--ink);font-weight:600;padding:12px 26px;font-size:14px}
-.btn.primary:hover{background:#fff}
+.cw{font-size:12.5px;color:var(--ink);opacity:.75;max-width:46ch;line-height:1.5;margin:0}
+.btn.primary{background:rgba(0,0,0,.6);color:var(--ink);border-color:var(--ink);padding:12px 26px;font-size:15px}
+.btn.primary:hover{background:rgba(255,0,0,.12)}
 .end-n{font:600 12px var(--f-body);letter-spacing:.28em;color:var(--red);margin:0}
 .end-t{font:400 clamp(40px,7vw,68px)/1 var(--f-display);margin:0;text-wrap:balance}
 /* fins : léger glitch à l'arrivée, puis quelques sursauts du titre */
@@ -69,7 +85,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 #s-end .end-t{animation:titleGlitch 5s 1s infinite}
 @keyframes titleGlitch{0%,90%,100%{text-shadow:none;transform:none}91%{text-shadow:-3px 0 rgba(255,255,255,.55),3px 0 rgba(110,110,110,.6);transform:translateX(2px)}93%{text-shadow:2px 0 rgba(255,255,255,.45),-2px 0 #555;transform:translateX(-3px) skewX(-7deg)}95%{text-shadow:none;transform:translateX(1px)}96%{transform:none}}
 @media (prefers-reduced-motion:reduce){#s-end:not([hidden]) .in,#s-end .end-t,#s-end:not([hidden])::before{animation:none}}
-.end-s{font:italic 400 19px var(--f-display);color:var(--muted);margin:0}
+.end-s{font:400 19px var(--f-display);color:var(--muted);margin:0}
 .journal ol{list-style:none;margin:0;padding:0;display:grid;gap:8px;text-align:left;min-width:min(340px,80vw)}
 .journal li{display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:8px;font-size:14px}
 .journal li span{font:600 11px var(--f-body);letter-spacing:.14em;color:var(--muted);width:44px}
@@ -115,12 +131,12 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 .pop-take:focus-visible{outline:none}
 .pop-take[hidden]{display:none}
 .pop-k{margin:0;font:600 11px var(--f-body);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
-.pop-t{margin:0;font:italic 400 clamp(19px,2.4vw,23px)/1.3 var(--f-display);text-wrap:balance}
+.pop-t{margin:0;font:400 clamp(19px,2.4vw,23px)/1.3 var(--f-display);text-wrap:balance}
 .pop-a{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:4px}
 .screen.popin .in{animation:popin .3s cubic-bezier(.2,1.3,.4,1)}
 @keyframes popin{from{opacity:0;transform:scale(.9)}}
 @media (prefers-reduced-motion:reduce){.pop{transition:opacity .2s}.screen.popin .in{animation:none}}
-.help{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-size:12px;color:#5d5f65;pointer-events:none}
+.help{opacity:.55;position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-size:12px;color:#5d5f65;pointer-events:none}
 .loading{color:var(--muted);font-size:13px}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){#scare.on img{animation:none;transform:none;filter:none}.chip.act{animation:none}}
@@ -149,11 +165,13 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
     <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/></filter></svg>
   <div id="scare" aria-hidden="true"><img id="scare-img" alt=""></div>
 
-  <section class="screen" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="in">
-    <h1 class="title" aria-label="Good Night Elisa"><span class="t-sub" aria-hidden="true">Good Night</span><span class="t-main" aria-hidden="true"><span class="t-cap">E</span>LIS<span class="t-cap">A</span></span></h1>
-    <p class="sub">Elisa wakes up from a nightmare. She wants to reach her parents. Prototype: the bedroom.</p>
-    <button class="btn primary" id="b-start" type="button" disabled>Loading…</button>
-    <p class="cw">Unsettling atmosphere, jump scares and loud sounds. Best played with sound on.</p>
+  <section class="screen" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="iris" id="iris" aria-hidden="true"></div><canvas id="eyelid" aria-hidden="true"></canvas><div class="in">
+    <h1 class="title"><img src="logo.webp" alt="Good Night Elisa"></h1>
+    <button class="wake" id="b-start" type="button" disabled aria-describedby="title-cw"><svg viewBox="0 0 220 84" aria-hidden="true">
+      <path class="white lid-top" d="M8 44 Q110 -14 212 44Z" fill="#fff"/><path class="white" d="M8 44 Q110 102 212 44Z" fill="#fff"/>
+      <path class="lid-top" d="M8 44 Q110 -14 212 44" fill="none" stroke="#ff0000" stroke-width="2"/><path d="M8 44 Q110 102 212 44" fill="none" stroke="#ff0000" stroke-width="2"/></svg>
+      <span class="label" id="b-start-label">Loading…</span></button>
+    <p class="cw" id="title-cw">Elisa wakes up from a nightmare and wants to reach her parents. Unsettling atmosphere, jump scares and loud sounds. Best played with sound on.</p>
   </div></section>
 
   <section class="screen" id="s-end" hidden><div class="in">
@@ -290,7 +308,7 @@ ceil.position.copy(V(2.5,2.5,2.73));ceil.castShadow=true;scene.add(ceil);
 
 /* ---------- son (Web Audio, tout est synthétisé) ---------- */
 let AC=null,master=null,droneG=null,heartTimer=null;
-function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop();preloadArt()}catch(e){AC=null}}
+function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop()}catch(e){AC=null}}
 /* sons enregistrés (générés avec Sunra / ElevenLabs) : chargés au démarrage, sinon on garde les sons de synthèse */
 const SFX_FILES=["cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
 function loadSfx(){SFX_FILES.forEach(n=>fetch("sons/"+n+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).then(buf=>{SFX[n]=buf;if(n==="nuit")nightLoop();if(n==="musique")musicLoop()}).catch(()=>{}))}
@@ -445,9 +463,9 @@ gltf().parse(glbBuffer(),"",g=>{
     lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.07,16,10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,depthWrite:false})));
     lampGlow.add(new THREE.PointLight(0xffffff,.6,1.1,2));lampGlow.position.set(.205,.41,.07);lampGlow.visible=false;root.add(lampGlow);
 
-    ready=true;const b=$("b-start");b.disabled=false;b.textContent="Start";
-  },()=>{$("b-start").textContent="Elisa couldn’t load"});
-},()=>{$("b-start").textContent="The bedroom couldn’t load"});
+    ready=true;const b=$("b-start");b.disabled=false;$("b-start-label").textContent="Wake-Up.";
+  },()=>{$("b-start-label").textContent="Elisa couldn’t load"});
+},()=>{$("b-start-label").textContent="The bedroom couldn’t load"});
 
 /* yeux rouges (créés ici : apparaissent pendant l’événement) */
 /* yeux de monstre : feuilles blanches pointues, sans pupille, coin intérieur abaissé (d'après la ref), lueur douce.
@@ -729,7 +747,7 @@ function toTitle(){paused=false;["s-pause","s-end","s-journal","s-drawing"].forE
   clearTimers();stopHeart();caHold=0;crawl.mesh.visible=false;setEyes("none");S.mode="title";S.path=null;walking=false;
   if(AC){try{AC.resume()}catch(e){}}musicLevel(.6,1);droneLevel(.2,1);$("thought").classList.remove("on");
   $("dark").style.transition="opacity .6s";$("dark").style.opacity=1;$("closing").style.opacity=0;$("b-pause").hidden=true;$("turn").hidden=true;$("s-title").hidden=false;
-  const b=$("b-start");b.textContent="Start";b.focus({preventScroll:true})}
+  const b=$("b-start");$("b-start-label").textContent="Wake-Up.";b.classList.remove("open");$("s-title").classList.remove("closing","peek");lid.v=0;lid.t=LID_REST;b.focus({preventScroll:true})}
 $("b-ptitle").onclick=toTitle;
 /* écran titre en parallaxe : carte de profondeur (branches devant, voiture et lampadaire, maison, brouillard au fond).
    L'image se décale selon la profondeur de chaque point, en suivant doucement la souris. */
@@ -768,7 +786,34 @@ function setLit(v){$("title-lit").classList.toggle("off",!v);if(titleFX)titleFX.
     let t=0;seq.forEach(([off,d])=>{setTimeout(()=>setLit(!off),t);t+=d});
     setTimeout(()=>{setLit(true);next()},t+40)}
   next()})();$("b-etitle").onclick=toTitle;
-$("b-start").onclick=()=>{if(!ready)return;audioInit();$("s-title").hidden=true;$("b-pause").hidden=false;$("turn").hidden=false;prologue(true)};
+/* paupières de l'écran titre : une amande ouverte dans le noir, bords flous. Repos : entrouverte ; survol : grande ouverte ; clic : se ferme */
+const LID_REST=.88,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
+(function lidLoop(){const cv=$("eyelid"),ctx=cv.getContext("2d"),T=$("s-title");
+  function draw(){const W=Math.max(1,Math.round(innerWidth/2)),H=Math.max(1,Math.round(innerHeight/2));
+    if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;lid.drawn=-1}
+    if(Math.abs(lid.v-lid.drawn)<.0005)return;lid.drawn=lid.v;
+    ctx.globalCompositeOperation="source-over";ctx.filter="none";ctx.fillStyle="#000";ctx.fillRect(0,0,W,H);
+    if(lid.v<.01)return;
+    const k=lid.v,cy=H*.5,hh=H*.56*k,ext=W*(.02+.09*Math.max(0,k-.8)*5);
+    ctx.globalCompositeOperation="destination-out";ctx.filter="blur("+Math.round(H*.035)+"px)";
+    ctx.beginPath();ctx.moveTo(-ext,cy);ctx.quadraticCurveTo(W/2,cy-hh*2,W+ext,cy);ctx.quadraticCurveTo(W/2,cy+hh*2,-ext,cy);ctx.fill()}
+  function step(){if(!T.hidden){const sp=lid.t<lid.v?(T.classList.contains("closing")?.075:.06):.045;lid.v+=(lid.t-lid.v)*(REDUCE?1:sp);if(Math.abs(lid.t-lid.v)<.002)lid.v=lid.t;draw();
+      // l'iris suit doucement la souris
+      $("iris").style.transform="translate("+(titleFX?titleFX.m.value.x*14:0)+"px,"+(titleFX?-titleFX.m.value.y*10:0)+"px)"}
+    requestAnimationFrame(step)}
+  addEventListener("resize",()=>lid.drawn=-1);step()})();
+function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resume().catch(()=>{});musicEl.play().then(()=>{["pointerdown","keydown","touchstart"].forEach(ev=>removeEventListener(ev,audioUnlock,true))}).catch(()=>{})}
+["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,audioUnlock,true));
+audioUnlock();
+const wakeBtn=$("b-start");
+const peek=on=>{if($("s-title").classList.contains("closing")||!ready)return;$("s-title").classList.toggle("peek",on);lid.t=on?LID_OPEN:LID_REST};
+wakeBtn.addEventListener("pointerenter",()=>peek(true));wakeBtn.addEventListener("pointerleave",()=>peek(false));
+wakeBtn.addEventListener("focus",()=>peek(true));wakeBtn.addEventListener("blur",()=>peek(false));
+$("b-start").onclick=()=>{if(!ready||$("s-title").classList.contains("closing"))return;audioUnlock();preloadArt();musicLevel(.3,.6);
+  // l'œil se ferme : écran noir, puis le jeu commence dans le noir
+  wakeBtn.classList.add("open");$("s-title").classList.add("closing");lid.t=0;
+  const go=()=>{$("s-title").hidden=true;$("s-title").classList.remove("closing","peek");wakeBtn.classList.remove("open");$("b-pause").hidden=false;$("turn").hidden=false;prologue(true)};
+  if(REDUCE)go();else{const w=()=>lid.v<=.01?setTimeout(go,180):requestAnimationFrame(w);w()}};
 
 /* ---------- pause ---------- */
 function setPause(on){if(on&&!["play","wake","busy"].includes(S.mode))return;paused=on;$("s-pause").hidden=!on;
