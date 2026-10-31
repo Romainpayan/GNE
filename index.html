@@ -51,21 +51,21 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 /* l'œil : iris et pupille en transparence derrière le titre, paupières en vignettage (canvas) */
 #s-title .iris{position:absolute;left:50%;top:47%;width:min(58vh,46vw);aspect-ratio:1;translate:-50% -50%;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle,rgba(0,0,0,.42) 0 30%,rgba(0,0,0,.1) 31% 62%,rgba(0,0,0,.22) 66%,transparent 71%);filter:blur(6px);transition:scale .9s cubic-bezier(.2,.8,.2,1)}
-#s-title .iris::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.55) 0 22%,transparent 30%);transition:scale .7s cubic-bezier(.2,.8,.2,1)}
+#s-title .iris::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.55) 0 22%,transparent 30%);transition:scale .7s cubic-bezier(.2,.8,.2,1);translate:calc(var(--mx,0)*18px) calc(var(--my,0)*14px)}
 #s-title.peek .iris::after{scale:.72}
 #s-title.closing .iris::after{scale:1.35}
-#s-title .in,#s-title .cw{transition:opacity .7s ease-in}
-#s-title.closing .in,#s-title.closing .cw{opacity:0}
-#eyelid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#s-title .cw{transition:opacity .5s ease-in}
+#s-title.closing .cw{opacity:0}
+#eyelid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 #s-title .in{position:relative;z-index:1;max-width:min(1200px,94vw);width:100%;justify-items:center}
 #s-title .in{gap:clamp(18px,4vh,40px)}
-#s-title .cw{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:auto;text-align:center;z-index:2}
+#s-title .cw{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:auto;text-align:center;z-index:3}
 /* bouton Wake-Up : un arc de paupière sous le mot ; au survol l'œil s'ouvre en amande blanche */
-.wake{position:relative;width:220px;height:84px;border:0;padding:0;background:none;cursor:pointer;font:400 24px/1 var(--f-body);color:#ff0000;-webkit-tap-highlight-color:transparent}
+.wake{position:relative;display:grid;place-items:center;width:220px;height:96px;border:0;padding:0;background:none;cursor:pointer;font:400 24px/1 var(--f-body);color:#ff0000;-webkit-tap-highlight-color:transparent}
 .wake svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .wake .lid-top{transform-origin:50% 50%;transform:scaleY(0);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
 .wake .white{opacity:0;transition:opacity .35s}
-.wake .label{position:relative;top:-4px}
+.wake .label{position:relative;line-height:1;transform:translateY(1px)}
 .wake:hover .lid-top,.wake:focus-visible .lid-top,.wake.open .lid-top{transform:scaleY(1)}
 .wake:hover .white,.wake:focus-visible .white,.wake.open .white{opacity:1}
 .wake:focus-visible{outline:none}
@@ -167,12 +167,11 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 
   <section class="screen" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="iris" id="iris" aria-hidden="true"></div><canvas id="eyelid" aria-hidden="true"></canvas><div class="in">
     <h1 class="title"><img src="logo.webp" alt="Good Night Elisa"></h1>
-    <button class="wake" id="b-start" type="button" disabled aria-describedby="title-cw"><svg viewBox="0 0 220 84" aria-hidden="true">
-      <path class="white lid-top" d="M8 44 Q110 -14 212 44Z" fill="#fff"/><path class="white" d="M8 44 Q110 102 212 44Z" fill="#fff"/>
-      <path class="lid-top" d="M8 44 Q110 -14 212 44" fill="none" stroke="#ff0000" stroke-width="2"/><path d="M8 44 Q110 102 212 44" fill="none" stroke="#ff0000" stroke-width="2"/></svg>
+    <button class="wake" id="b-start" type="button" disabled aria-describedby="title-cw"><svg viewBox="0 0 220 96" aria-hidden="true">
+      <path class="white lid-top" d="M6 48 Q110 -36 214 48Z" fill="#fff"/><path class="white" d="M6 48 Q110 132 214 48Z" fill="#fff"/>
+      <path class="lid-top" d="M6 48 Q110 -36 214 48" fill="none" stroke="#ff0000" stroke-width="2"/><path d="M6 48 Q110 132 214 48" fill="none" stroke="#ff0000" stroke-width="2"/></svg>
       <span class="label" id="b-start-label">Loading…</span></button>
-    <p class="cw" id="title-cw">Elisa wakes up from a nightmare and wants to reach her parents. Unsettling atmosphere, jump scares and loud sounds. Best played with sound on.</p>
-  </div></section>
+  </div><p class="cw" id="title-cw">Elisa wakes up from a nightmare and wants to reach her parents. Unsettling atmosphere, jump scares and loud sounds. Best played with sound on.</p></section>
 
   <section class="screen" id="s-end" hidden><div class="in">
     <p class="end-n" id="end-n"></p><h2 class="end-t" id="end-t"></h2><p class="end-s" id="end-s"></p>
@@ -787,7 +786,7 @@ function setLit(v){$("title-lit").classList.toggle("off",!v);if(titleFX)titleFX.
     setTimeout(()=>{setLit(true);next()},t+40)}
   next()})();$("b-etitle").onclick=toTitle;
 /* paupières de l'écran titre : une amande ouverte dans le noir, bords flous. Repos : entrouverte ; survol : grande ouverte ; clic : se ferme */
-const LID_REST=.88,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
+const LID_REST=.6,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
 (function lidLoop(){const cv=$("eyelid"),ctx=cv.getContext("2d"),T=$("s-title");
   function draw(){const W=Math.max(1,Math.round(innerWidth/2)),H=Math.max(1,Math.round(innerHeight/2));
     if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;lid.drawn=-1}
@@ -799,7 +798,8 @@ const LID_REST=.88,LID_OPEN=1.06;const lid={v:0,t:LID_REST,drawn:-1,w:0,h:0};
     ctx.beginPath();ctx.moveTo(-ext,cy);ctx.quadraticCurveTo(W/2,cy-hh*2,W+ext,cy);ctx.quadraticCurveTo(W/2,cy+hh*2,-ext,cy);ctx.fill()}
   function step(){if(!T.hidden){const sp=lid.t<lid.v?(T.classList.contains("closing")?.075:.06):.045;lid.v+=(lid.t-lid.v)*(REDUCE?1:sp);if(Math.abs(lid.t-lid.v)<.002)lid.v=lid.t;draw();
       // l'iris suit doucement la souris
-      $("iris").style.transform="translate("+(titleFX?titleFX.m.value.x*14:0)+"px,"+(titleFX?-titleFX.m.value.y*10:0)+"px)"}
+      const ir=$("iris"),mx=titleFX?titleFX.m.value.x:0,my=titleFX?-titleFX.m.value.y:0;
+      ir.style.transform="translate("+(mx*34).toFixed(1)+"px,"+(my*24).toFixed(1)+"px)";ir.style.setProperty("--mx",mx.toFixed(3));ir.style.setProperty("--my",my.toFixed(3))}
     requestAnimationFrame(step)}
   addEventListener("resize",()=>lid.drawn=-1);step()})();
 function audioUnlock(){audioInit();if(!AC)return;if(AC.state!=="running")AC.resume().catch(()=>{});musicEl.play().then(()=>{["pointerdown","keydown","touchstart"].forEach(ev=>removeEventListener(ev,audioUnlock,true))}).catch(()=>{})}
