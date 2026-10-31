@@ -467,15 +467,21 @@ gltf().parse(glbBuffer(),"",g=>{
   gltf().parse(glbBuffer(window.ELISA_PERSO_GLB),"",ge=>{
     /* nouveau modèle (tête, bras, jambes séparés) : on retire le sol et la caméra de l'export, on le met à l'échelle (0,83 m), pieds au sol */
     const drop=[];ge.scene.traverse(o=>{if(o.isCamera||o.isLight||o.name==="Cube_5")drop.push(o)});drop.forEach(o=>o.parent&&o.parent.remove(o));
+    const SOCK=.67;   // position le long de la jambe (0 = hanche, 1 = pied) où commence la chaussette
     const part=o=>{while(o&&(!o.name||/^mesh_\d+$/.test(o.name)))o=o.parent;return o?o.name:""};
     const MAT=(c,r)=>new THREE.MeshStandardMaterial({color:c,roughness:r||.85});
-    const M={skin:MAT(0xe4ddd5),hair:MAT(0x1c1c1c,.7),eye:MAT(0x0a0a0a,.4),dress:MAT(0xdedede),collar:MAT(0xf2f2f2),leg:MAT(0xcfc8c0)};
-    ge.scene.traverse(o=>{if(!o.isMesh)return;const n=part(o.parent)||part(o),pn=part(o.parent&&o.parent.parent);
-      o.material=/LEG/.test(n)?M.leg:n==="Cube_2"?M.hair:/Cube_[34]/.test(n)?M.eye:n==="BODY"?M.dress:n==="Cube"?M.collar:M.skin;
+    const M={skin:MAT(0x8f8f8f),ear:MAT(0x6e6e6e),hair:MAT(0x0c0c0c,.7),eye:MAT(0x050505,.4),dress:MAT(0xf4f4f4),collar:MAT(0x3c3c3c),leg:MAT(0xffffff)};M.leg.vertexColors=true;
+    ge.scene.traverse(o=>{if(!o.isMesh)return;const n=part(o);
+      o.material=/LEG/.test(n)?M.leg:n==="Cube_2"?M.hair:/Cube_[34]/.test(n)?M.eye:n==="BODY"||/^Cylinder/.test(n)?M.dress:n==="Cube"?M.collar:/EAR/.test(n)?M.ear:M.skin;
+      // jambes : peau grise en haut, chaussettes blanches en bas (couleur par sommet, le long de la jambe)
+      if(/LEG/.test(n)){const g=o.geometry,P=g.attributes.position,c=new Float32Array(P.count*3);let lo=1e9,hi=-1e9;for(let i=0;i<P.count;i++){const y=P.getY(i);lo=Math.min(lo,y);hi=Math.max(hi,y)}
+        for(let i=0;i<P.count;i++){const t=(P.getY(i)-lo)/(hi-lo||1);c[i*3]=c[i*3+1]=c[i*3+2]=t}g.setAttribute("color",new THREE.BufferAttribute(c,3))}
       o.castShadow=true;o.receiveShadow=true});
     ge.scene.updateMatrixWorld(true);const bb=new THREE.Box3().setFromObject(ge.scene),sz=bb.getSize(new THREE.Vector3()),K=.83/sz.y;
     const norm=new THREE.Group();norm.scale.setScalar(K);norm.position.set(-(bb.min.x+bb.max.x)/2*K,-bb.min.y*K,-(bb.min.z+bb.max.z)/2*K);norm.add(ge.scene);
-    const root=new THREE.Group();root.add(norm);grainify(norm,3.0,true,gOriginElisa);elisa.add(root);
+    const root=new THREE.Group();root.add(norm);grainify(norm,3.0,true,gOriginElisa);
+    {const prev=M.leg.onBeforeCompile;M.leg.onBeforeCompile=sh=>{prev&&prev(sh);
+      sh.fragmentShader=sh.fragmentShader.replace("#include <color_fragment>","diffuseColor.rgb*=vColor.r>"+SOCK.toFixed(3)+"?1.:.47;")}}elisa.add(root);
     elisa.position.copy(V(2.82,1.2,0));elisa.rotation.y=Math.PI/2;elisa.updateMatrixWorld(true);
     // pivots dans le repère d'Elisa (mètres) : hanches, épaules, cou
     const at=(name,fn)=>{const o=ge.scene.getObjectByName(name);if(!o)return null;const b=new THREE.Box3().setFromObject(o);root.worldToLocal(b.min);root.worldToLocal(b.max);return fn(b)};
