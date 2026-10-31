@@ -795,7 +795,7 @@ let wakeIris=false;const _ip=new THREE.Vector3();
 function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
 let wakeTok=0;
-function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;S.doorOpen=false;S.doorTried=false;S.stretched=false;underShadow.visible=true;
+function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;S.doorOpen=false;S.doorTried=false;S.bedArmed=false;S.bedSpot=null;S.stretched=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
   setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.gotLamp=false;S.cells=0;S.cellShelf=false;S.cellChest=false;S.path=null;S.onArrive=null;
   if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");$("inv").textContent="Flashlight";
@@ -822,11 +822,17 @@ function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$
 function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hideChip();
   // la voix raconte le lever pendant qu'elle se lève ; puis « she… » — l'armoire grince dans la pause — « wait. »
   for(let i=narrQ.length-1;i>=0;i--)if(/^(wake|nudge)/.test(narrQ[i].id))narrQ.splice(i,1);
-  const goWait=()=>narrThen("wait",()=>{
-      later(()=>narrThen("wardrobe",()=>{whisper2();later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe")},300)}),300)},
-      [[2.45,()=>{creak();placardDoor(-50,1800);later(()=>setEyes("placard"),1100)}]]);
-  if(S.saidGetup)later(goWait,1600);else{S.saidGetup=true;narrThen("getup",()=>later(goWait,900))}
-  sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play"}),450)))}
+  // 1) elle sort du lit (« She climbed out of bed… », sauf si déjà dit)
+  // 2) « Determined to find her parents, she… wait. » : l'armoire s'ouvre sur « wait », les yeux s'allument dedans,
+  //    et « The wardrobe door opened… » enchaîne aussitôt
+  // 3) les yeux sous le lit n'attendent plus que le joueur s'éloigne du lit (voir loop)
+  const wk=wakeTok;S.bedArmed=false;S.bedSpot=null;
+  const goWait=()=>{if(wk!==wakeTok)return;narrThen("wait",()=>{
+      narrThen("wardrobe",()=>{whisper2();S.monsters=true;S.bedArmed=true;
+        later(()=>{if(!S.saidBed)narr("eyes_wardrobe",{ifFree:true})},600)})},
+      [[2.45,()=>{creak();placardDoor(-50,1800);later(()=>setEyes("placard"),1000)}]])};
+  if(S.saidGetup)later(goWait,900);else{S.saidGetup=true;narrThen("getup",()=>later(goWait,500))}
+  sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.bedSpot=[elisa.position.x,elisa.position.z];S.mode="play"}),450)))}
 /* ---------- paralysie du sommeil : une ombre-main qui rampe au sol, grimpe le pied du lit et avance sur la couette ----------
    Une bande de géométrie épouse le trajet (sol -> face du pied de lit -> dessus -> couette). Le shader y dessine,
    d'après la distance parcourue, une masse noire aux bords mouvants et cinq longs doigts effilés qui ondulent. */
@@ -1068,7 +1074,7 @@ let last=performance.now();
 let lastInput=performance.now();["pointerdown","keydown"].forEach(ev=>addEventListener(ev,()=>lastInput=performance.now(),true));
 let lastMove=0,lastWalk=performance.now(),scanDist=0,lastScanSay=0,lastPtr=[0,0];
 addEventListener("pointermove",e=>{const d=Math.hypot(e.clientX-lastPtr[0],e.clientY-lastPtr[1]);lastPtr=[e.clientX,e.clientY];if(d<200){scanDist+=d}lastMove=performance.now()});
-function loop(now){if(S.mode==="play"&&!paused&&!popOpen()){if(walking||S.path){lastWalk=now;scanDist=0}
+function loop(now){if(S.mode==="play"&&S.saidBed&&!paused&&!popOpen()){if(walking||S.path){lastWalk=now;scanDist=0}
     if(now-lastInput>26000&&now-lastMove>6000){lastInput=now;narrAny(["idle_a","idle_b"],{ifFree:true})}
     else if(now-lastWalk>9000&&scanDist>1400&&now-lastScanSay>22000){lastScanSay=now;scanDist=0;narrAny(["scan_a","scan_b","scan_c"],{ifFree:true})}}const dt=Math.min(.1,(now-last)/1000);last=now;
   if(ready&&!paused){tickClock(dt);walking=false;
@@ -1080,9 +1086,12 @@ function loop(now){if(S.mode==="play"&&!paused&&!popOpen()){if(walking||S.path){
     animateRig(dt);gOriginElisa.value.copy(elisa.position);
     // les monstres apparaissent là où Elisa ne regarde pas, jusqu’à ce qu’elle aille voir de près
     if(S.monsters&&S.mode==="play"){const a=lookAt(V(0.3,3.9,1.0)),b=lookAt(V(2.2,1.2,0.1));let w=S.eyes;
-      if(!S.saidBed){if(Math.hypot(elisa.position.x-2.0,-elisa.position.z-1.2)>1.7)w="bed"}
+      if(!S.saidBed){
+        // dès qu'Elisa s'éloigne du lit : les yeux dessous, et la phrase (passe devant les remarques en attente)
+        if(S.bedArmed&&S.bedSpot&&Math.hypot(elisa.position.x-S.bedSpot[0],elisa.position.z-S.bedSpot[1])>.6){
+          S.saidBed=true;w="bed";for(let i=narrQ.length-1;i>=0;i--)if(narrQ[i].id!=="eyes_bed")narrQ.splice(i,1);narr("eyes_bed")}}
       else if(a>.55&&a>=b)w="bed";else if(b>.55&&b>a)w="placard";
-      if(w!==S.eyes){setEyes(w);if(w==="bed"&&!S.saidBed){S.saidBed=true;narr("eyes_bed")}}}
+      if(w!==S.eyes)setEyes(w)}
     // contour lumineux des endroits d’intérêt quand Elisa s’en approche
     eyePairs.forEach(g=>blinkEyes(g,dt));
     if(lampGlow)lampGlow.visible=S.hasLamp&&elisa.visible;
