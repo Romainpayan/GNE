@@ -395,15 +395,27 @@ const narrBuf={},narrSeen=new Set();let narrSrc=null,narrUntil=0;
 function narrLoad(id){if(narrBuf[id]||!AC)return narrBuf[id];narrBuf[id]=fetch("sons/narr/"+id+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).catch(()=>null);return narrBuf[id]}
 const narrQ=[];const pick=a=>a[Math.random()*a.length|0];
 function narrAny(ids,o){return narr(pick(ids),o)}
+/* une seule réplique à la fois : si le narrateur parle, la suivante attend son tour (les remarques d'ambiance sont simplement abandonnées) */
+let narrTok=0,narrBusy=false;
+// o.onEnd : appelé quand la réplique est finie ; o.at : [[secondes, fn], …] calés sur l'audio (pour synchroniser une animation sur un mot)
 function narr(id,o){o=o||{};if(o.once&&narrSeen.has(id))return false;const t=NARR[id];if(!t)return false;
-  if(o.ifFree&&performance.now()<narrUntil)return false;
-  if(o.queue&&performance.now()<narrUntil){narrQ.push(id);return true}narrSeen.add(id);
-  if(narrSrc){try{narrSrc.stop()}catch(e){}narrSrc=null}
-  think(t,Math.max(2600,t.length*55));narrUntil=performance.now()+t.length*60;
-  const p=narrLoad(id);if(p)p.then(buf=>{if(!buf||!AC)return;const src=AC.createBufferSource(),g=AC.createGain();src.buffer=buf;g.gain.value=1.1;src.connect(g).connect(master);
-    narrSrc=src;src.start();narrUntil=performance.now()+buf.duration*1000+300;musicLevel(.45,.3);src.onended=()=>{if(narrSrc===src){narrSrc=null;const nx=narrQ.shift();if(nx)setTimeout(()=>narr(nx),250);else musicLevel(1,1.2)}}});
-  return true}
-
+  const busy=narrBusy||performance.now()<narrUntil;
+  if(busy){if(o.ifFree)return false;if(!narrQ.some(q=>q.id===id)&&narrQ.length<3)narrQ.push({id,o});narrSeen.add(id);return true}
+  narrSeen.add(id);narrPlay(id,o);return true}
+function narrThen(id,fn,at){return narr(id,{onEnd:fn,at})}
+function narrNext(){narrBusy=false;const nx=narrQ.shift();if(nx)setTimeout(()=>narrPlay(nx.id,nx.o),300);else musicLevel(1,1.2)}
+function narrPlay(id,o){o=o||{};const t=NARR[id],tok=++narrTok;narrBusy=true;
+  narrUntil=performance.now()+t.length*65+800;
+  const done=()=>{if(tok!==narrTok)return;o.onEnd&&o.onEnd();narrNext()};
+  const run=dur=>{think(t,dur*1000+600);(o.at||[]).forEach(([sec,fn])=>later(()=>{if(tok===narrTok)fn()},sec*1000))};
+  const p=narrLoad(id),fallback=()=>{const d=Math.max(2.4,t.length*.06);run(d);later(done,d*1000)};
+  if(!p||!AC){fallback();return}
+  p.then(buf=>{if(tok!==narrTok)return;if(!buf){fallback();return}
+    const src=AC.createBufferSource(),g=AC.createGain();src.buffer=buf;g.gain.value=1.1;src.connect(g).connect(master);
+    if(narrSrc){try{narrSrc.stop()}catch(e){}}narrSrc=src;src.start();run(buf.duration);
+    narrUntil=performance.now()+buf.duration*1000+300;musicLevel(.45,.3);
+    src.onended=()=>{if(narrSrc===src)narrSrc=null;done()}})}
+function narrReset(){narrQ.length=0;narrTok++;narrBusy=false;narrUntil=0;if(narrSrc){try{narrSrc.stop()}catch(e){}narrSrc=null}}
 function think(t,ms){const el=$("thought");typeText(el,t);el.classList.add("on");clearTimeout(thoughtTimer);thoughtTimer=setTimeout(()=>el.classList.remove("on"),(ms||3200)+t.length*30)}
 const chip=$("chip");
 function showChip(text,pos,act){chip.textContent=text;chip.classList.add("on");chip.classList.toggle("act",!!act);chip._pos=pos}
@@ -751,7 +763,7 @@ function showPop(k,t,actions,onClose,img,lock,mood){dollFX.start(img);popMood=mo
   $("popbg").classList.add("on");
   const open=()=>{if(img&&img.fade){void fg.offsetWidth;fg.classList.add("fadein")}$("pop").classList.add("on");const b=$("pop-a").querySelector("button");b&&b.focus({preventScroll:true})};
   const d=(img&&img.delay)||0;if(d)later(open,d);else requestAnimationFrame(open)}
-function setPopBody(t,actions){const pt=$("pop-t");pt.hidden=!t;typeText(pt,t,38);$("pop-cap").classList.toggle("empty",!t);const a=$("pop-a");a.innerHTML="";if($("pop").dataset.lock)return;
+function setPopBody(t,actions){t="";const pt=$("pop-t");pt.hidden=!t;typeText(pt,t,38);$("pop-cap").classList.toggle("empty",!t);const a=$("pop-a");a.innerHTML="";if($("pop").dataset.lock)return;
   (actions||[]).forEach(x=>{const b=document.createElement("button");b.type="button";b.className="btn primary";b.textContent=x.label;b.onclick=()=>x.fn(setPopBody);a.appendChild(b)});
   const c=document.createElement("button");c.type="button";c.className="btn";c.textContent=(actions&&actions.length)?"Leave it":"Close";c.onclick=closePop;a.appendChild(c)}
 function popOpen(){return $("pop").classList.contains("on")}
@@ -779,7 +791,7 @@ const EYE_CURSOR='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http
 let wakeIris=false;const _ip=new THREE.Vector3();
 function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
-function prologue(first){$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
+function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
   setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.gotLamp=false;S.cells=0;S.cellShelf=false;S.cellChest=false;S.path=null;S.onArrive=null;
   if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");$("inv").textContent="Flashlight";
@@ -793,14 +805,18 @@ function prologue(first){$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").cl
   // elle se réveille en sursaut : un cercle serré sur elle et le lit, puis le noir se retire peu à peu
   later(()=>{gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
     $("dark").style.transition="none";$("dark").style.opacity=0;droneLevel(.55,2);
-    later(()=>first?narr("wake1"):S.died?narr("wake2d"):narrAny(["wake2a","wake2b","wake2c"]),500);S.died=false;later(()=>{if(S.mode==="wake")narrAny(["nudge_a","nudge_b"])},5200);
+    later(()=>S.mode!=="wake"?0:first?narr("wake1"):S.died?narr("wake2d"):narrAny(["wake2a","wake2b","wake2c"]),500);S.died=false;later(()=>{if(S.mode==="wake")narrAny(["nudge_a","nudge_b"])},5200);
     later(()=>anim(3800,k=>{const e=k*k*(3-2*k);C.style.setProperty("--r",(4+86*e)+"%");C.style.setProperty("--soft",(9+30*e)+"%")},
       ()=>{wakeIris=false;C.style.opacity=0;C.style.setProperty("--soft","18%");C.style.setProperty("--cx","50%");C.style.setProperty("--cy","55%")}),900);
     later(()=>{if(!S.stretched)endParalysis()},9000)},t1+650);
 }
 function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hideChip();
-  sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play";
-    narr("getup");later(()=>narr("wait"),2600);later(()=>{creak();later(()=>narr("wardrobe"),900);placardDoor(-50,1800);later(()=>whisper2(),1700);later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe",{queue:true})},1300)},4600)}),450)))}
+  // la voix raconte le lever pendant qu'elle se lève ; puis « she… » — l'armoire grince dans la pause — « wait. »
+  for(let i=narrQ.length-1;i>=0;i--)if(/^(wake|nudge)/.test(narrQ[i].id))narrQ.splice(i,1);
+  narrThen("getup",()=>later(()=>narrThen("wait",()=>{
+      later(()=>narrThen("wardrobe",()=>{whisper2();later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe")},900)}),300)},
+      [[2.45,()=>{creak();placardDoor(-50,1800)}]]),900));
+  sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play"}),450)))}
 /* ---------- paralysie du sommeil : une ombre-main qui rampe au sol, grimpe le pied du lit et avance sur la couette ----------
    Une bande de géométrie épouse le trajet (sol -> face du pied de lit -> dessus -> couette). Le shader y dessine,
    d'après la distance parcourue, une masse noire aux bords mouvants et cinq longs doigts effilés qui ondulent. */
@@ -854,7 +870,7 @@ function ending(id){S.died=id!=="couloir";if(S.died)later(()=>{const n=Math.rand
   $("end-s").textContent=id==="couloir"?`End of the prototype. Endings found: ${[...found].filter(x=>x!=="couloir").length} of 4.`:"Elisa wakes up with a start.";
   $("b-again").textContent="Wake up";$("s-end").hidden=false;S.mode="ending"}
 $("b-again").onclick=()=>{$("s-end").hidden=true;prologue(false)};
-function toTitle(){$("gamelid").hidden=true;paused=false;["s-pause","s-end","s-journal","s-drawing"].forEach(x=>$(x).hidden=true);$("pop").classList.remove("on");$("popbg").classList.remove("on");$("scare").classList.remove("on");
+function toTitle(){narrReset();$("gamelid").hidden=true;paused=false;["s-pause","s-end","s-journal","s-drawing"].forEach(x=>$(x).hidden=true);$("pop").classList.remove("on");$("popbg").classList.remove("on");$("scare").classList.remove("on");
   clearTimers();stopHeart();caHold=0;crawl.mesh.visible=false;setEyes("none");S.mode="title";S.path=null;walking=false;
   if(AC){try{AC.resume()}catch(e){}}musicLevel(.6,1);droneLevel(.2,1);$("thought").classList.remove("on");
   $("dark").style.transition="opacity .6s";$("dark").style.opacity=1;$("closing").style.opacity=0;$("b-pause").hidden=true;$("turn").hidden=true;$("s-title").hidden=false;
