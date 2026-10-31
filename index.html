@@ -490,7 +490,11 @@ gltf().parse(glbBuffer(),"",g=>{
     // la lampe tenue dans une main : petite lueur
     lampGlow=new THREE.Group();lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.026,16,10),new THREE.MeshBasicMaterial({color:0xffffff})));
     lampGlow.add(new THREE.Mesh(new THREE.SphereGeometry(.07,16,10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,depthWrite:false})));
-    lampGlow.add(new THREE.PointLight(0xffffff,.6,1.1,2));const ha=rig.armR;ha.updateMatrixWorld(true);if(hand){root.localToWorld(hand);ha.worldToLocal(hand);lampGlow.position.copy(hand)}lampGlow.visible=false;ha.add(lampGlow);
+    lampGlow.add(new THREE.PointLight(0xffffff,.6,1.1,2));const ha=rig.armR;root.updateMatrixWorld(true);
+    // la main = la sphère au bout du bras droit : la lueur se place en son centre
+    let handObj=null;ha.traverse(o=>{if(!handObj&&/Sphere/i.test(o.name))handObj=o});
+    const hb=new THREE.Box3().setFromObject(handObj||ha),hp=hb.getCenter(new THREE.Vector3());if(!handObj)hp.y=hb.min.y+.02;
+    ha.worldToLocal(hp);lampGlow.position.copy(hp);lampGlow.visible=false;ha.add(lampGlow);
 
     ready=true;const b=$("b-start");b.disabled=false;$("b-start-label").textContent="Wake-Up.";
   },()=>{$("b-start-label").textContent="Elisa couldn’t load"});
