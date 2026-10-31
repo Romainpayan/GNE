@@ -72,10 +72,10 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 .wake{position:relative;display:grid;place-items:center;width:220px;height:96px;border:0;padding:0;background:none;cursor:var(--cur-open);font:400 24px/1 var(--f-body);color:#ff0000;-webkit-tap-highlight-color:transparent}
 .wake svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .wake .lid-top{transform-origin:50% 50%;transform:scaleY(0);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
-.wake .white{opacity:0;transition:opacity .35s}
+.wake .white{display:none}
 .wake .label{position:relative;line-height:1;transform:translateY(1px)}
 .wake:hover .lid-top,.wake:focus-visible .lid-top,.wake.open .lid-top{transform:scaleY(1)}
-.wake:hover .white,.wake:focus-visible .white,.wake.open .white{opacity:1}
+
 .wake:focus-visible{outline:none}
 .wake:disabled{cursor:progress;opacity:.7}
 @media (prefers-reduced-motion:reduce){.wake .lid-top,.wake .white{transition:none}}
@@ -325,7 +325,7 @@ ceil.position.copy(V(2.5,2.5,2.73));ceil.castShadow=true;scene.add(ceil);
 let AC=null,master=null,droneG=null,heartTimer=null;
 function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);drone();loadSfx();musicLoop();setTimeout(()=>Object.keys(NARR).forEach(narrLoad),1500)}catch(e){AC=null}}
 /* sons enregistrés (générés avec Sunra / ElevenLabs) : chargés au démarrage, sinon on garde les sons de synthèse */
-const SFX_FILES=["ui_clic","cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps"],SFX={};
+const SFX_FILES=["ui_clic","cri_enfant","apnee","respire","cri_fin","sursaut_lit","sursaut_armoire","chuchotement","hum_bof","hum_non","hum_in","hum_out","matelas","tiroir_ferme","allumer","nuit","pas","armoire","tiroir","lampe","reveil","choc","pleur","sursaut","coeur","porte","draps","inspire"],SFX={};
 function loadSfx(){SFX_FILES.forEach(n=>fetch("sons/"+n+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).then(buf=>{SFX[n]=buf;if(n==="nuit")nightLoop();if(n==="musique")musicLoop()}).catch(()=>{}))}
 function sfx(n,o){if(!AC||!SFX[n])return false;o=o||{};const src=AC.createBufferSource();src.buffer=SFX[n];src.playbackRate.value=o.rate||1;
   const g=AC.createGain();g.gain.value=o.vol==null?1:o.vol;src.connect(g).connect(o.dest||master);src.start(AC.currentTime+(o.at||0));return true}
@@ -356,7 +356,7 @@ let stepLP=null;function step(){if(AC&&!stepLP){stepLP=AC.createBiquadFilter();s
   if(!AC||sfx("pas",{vol:1.7,rate:.85+Math.random()*.15,dest:stepLP}))return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(.12);const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=420;const g=AC.createGain();n.connect(lp).connect(g).connect(master);env(g,t,.005,.12,.09);n.start(t)}
 function stinger(){if(!AC||sfx("sursaut"))return;const t=AC.currentTime;[220,233,311,466].forEach(f=>{const o=AC.createOscillator(),g=AC.createGain();o.type="sawtooth";o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*.5,t+1.2);o.connect(g).connect(master);env(g,t,.01,.22,1.3);o.start(t);o.stop(t+1.4)});
   const n=AC.createBufferSource();n.buffer=noiseBuf(1);const g=AC.createGain();n.connect(g).connect(master);env(g,t,.005,.6,.9);n.start(t)}
-function gasp(){if(!AC||sfx("respire",{vol:.95})||sfx("reveil",{vol:.9}))return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(.7);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.Q.value=2;bp.frequency.setValueAtTime(600,t);bp.frequency.linearRampToValueAtTime(1800,t+.4);const g=AC.createGain();n.connect(bp).connect(g).connect(master);env(g,t,.04,.7,.5);n.start(t)}
+function gasp(){if(!AC||sfx("inspire",{vol:1})||sfx("reveil",{vol:.9}))return;const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf(.7);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.Q.value=2;bp.frequency.setValueAtTime(600,t);bp.frequency.linearRampToValueAtTime(1800,t+.4);const g=AC.createGain();n.connect(bp).connect(g).connect(master);env(g,t,.04,.7,.5);n.start(t)}
 let heartOn=false,heartBpm=70,heartAcc=6,heartId=0;
 function heart(rate,acc){stopHeart();if(!AC)return;heartOn=true;heartBpm=rate||70;heartAcc=acc==null?6:acc;const id=++heartId;
   const beat=()=>{if(!heartOn||id!==heartId)return;const t=AC.currentTime;if(!sfx("coeur",{vol:.9}))[0,.22].forEach((d,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=i?48:58;o.connect(g).connect(master);env(g,t+d,.01,i?.35:.55,.18);o.start(t+d);o.stop(t+d+.3)});
@@ -390,7 +390,7 @@ function typeText(el,t,cps,done){clearInterval(typers.get(el));el.setAttribute("
   if(REDUCE){el.textContent=t;done&&done();return}
   typers.set(el,setInterval(step,25))}
 /* ---------- narratrice (façon Stanley Parable) : sous-titre tapé + voix, sons/narr/<id>.mp3 ---------- */
-const NARR={"wake1": "A scream. Muffled. It woke Elisa up.", "wake2a": "Ok so. A scream, muffled, woke Elisa up.", "wake2b": "Hm. Ok. Let's start over.", "wake2c": "Again. A scream. Again, Elisa woke up.", "wake2d": "Back in bed. As if nothing happened. Lucky girl.", "nudge_a": "Any time now, Elisa.", "nudge_b": "The bed won't climb out of itself.", "paralysis": "But, paralysed, she felt a dark weight pressing against her chest, and...", "getup": "She climbed out of bed, with the urge to see where it came from.", "wait": "Determined to find her parents, she... wait.", "wardrobe": "The wardrobe door opened. By itself. Naturally.", "eyes_wardrobe": "Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.", "eyes_bed": "Then, under the bed. Two eyes. Patient ones.", "scan_a": "In the cold, she looked around her room, searching for something useful.", "scan_b": "Looking is free. Walking, apparently, costs extra.", "scan_c": "Elisa's eyes wandered. Her feet did not.", "idle_a": "Elisa stood perfectly still, waiting, perhaps, for the dark to get bored.", "idle_b": "Elisa waited. The dark waited too. It's better at it.", "bed": "Elisa considered going back to bed. A tempting idea. Also a cowardly one.", "drawer": "The girl checked the desk drawer.", "flashlight": "Ah, a flashlight... Elisa had a bright idea. But...", "nobatt": "It did not turn on. Of course it didn't. Nothing is ever that easy.", "dolls": "The dolls on the shelf watched Elisa. They always did.", "chest": "The toy chest. Full of old friends. Most of them harmless.", "window": "Outside, the garden. And the doghouse. Whatever had been chained there was no longer... chained there.", "drawing": "A drawing. Elisa didn't remember drawing it. That was the interesting part.", "bunny": "Bunny was asleep. Bunny was always asleep when Elisa needed him.", "again_a": "Elisa looked again. Nothing had changed. Things rarely do.", "again_b": "Still there. Still the same.", "again_c": "Elisa checked again. Thorough. Or stalling.", "drawer_empty": "The drawer. Still a drawer.", "batt1": "One battery. Elisa needed two. Mathematics can be so cruel.", "batt2": "And the second battery. Light, at last.", "coats": "Coats. Just coats. How very disappointing for everyone.", "toys": "Toys. Only toys. Elisa almost sounded relieved.", "unreachable_a": "Elisa could not reach that. Elisa is small. We've been over this.", "unreachable_b": "Too far, Elisa. Walk first. Then touch.", "hall_dark": "Elisa stepped into the dark hallway without a light. Bold. Foolish, but bold.", "hall_lamp": "Flashlight in hand, Elisa stepped into the hallway. And the story could finally begin.", "death1": "Ouch. That did not seem pleasant.", "death2": "Well. Elisa did not think things through.", "death_end": "And that, I'm afraid, was the end of Elisa. For tonight.", "death_wardrobe": "Never open a wardrobe that opens itself. Elementary.", "death_bed": "Looking under the bed. In the dark. A classic, at least.", "death_dark": "The dark hallway. Without a light. Elisa was brave. Briefly.", "death_paralysis": "Elisa did not move. The night moved for her."};
+const NARR={"threshold":"The dark, beyond the threshold of the bedroom door, gave the girl goosebumps.","wake1": "A scream. Muffled. It woke Elisa up.", "wake2a": "Ok so. A scream, muffled, woke Elisa up.", "wake2b": "Hm. Ok. Let's start over.", "wake2c": "Again. A scream. Again, Elisa woke up.", "wake2d": "Back in bed. As if nothing happened. Lucky girl.", "nudge_a": "Any time now, Elisa.", "nudge_b": "The bed won't climb out of itself.", "paralysis": "But, paralysed, she felt a dark weight pressing against her chest, and...", "getup": "She climbed out of bed, with the urge to see where it came from.", "wait": "Determined to find her parents, she... wait.", "wardrobe": "The wardrobe door opened. By itself. Naturally.", "eyes_wardrobe": "Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.", "eyes_bed": "Then, under the bed. Two eyes. Patient ones.", "scan_a": "In the cold, she looked around her room, searching for something useful.", "scan_b": "Looking is free. Walking, apparently, costs extra.", "scan_c": "Elisa's eyes wandered. Her feet did not.", "idle_a": "Elisa stood perfectly still, waiting, perhaps, for the dark to get bored.", "idle_b": "Elisa waited. The dark waited too. It's better at it.", "bed": "Elisa considered going back to bed. A tempting idea. Also a cowardly one.", "drawer": "The girl checked the desk drawer.", "flashlight": "Ah, a flashlight... Elisa had a bright idea. But...", "nobatt": "It did not turn on. Of course it didn't. Nothing is ever that easy.", "dolls": "The dolls on the shelf watched Elisa. They always did.", "chest": "The toy chest. Full of old friends. Most of them harmless.", "window": "Outside, the garden. And the doghouse. Whatever had been chained there was no longer... chained there.", "drawing": "A drawing. Elisa didn't remember drawing it. That was the interesting part.", "bunny": "Bunny was asleep. Bunny was always asleep when Elisa needed him.", "again_a": "Elisa looked again. Nothing had changed. Things rarely do.", "again_b": "Still there. Still the same.", "again_c": "Elisa checked again. Thorough. Or stalling.", "drawer_empty": "The drawer. Still a drawer.", "batt1": "One battery. Elisa needed two. Mathematics can be so cruel.", "batt2": "And the second battery. Light, at last.", "coats": "Coats. Just coats. How very disappointing for everyone.", "toys": "Toys. Only toys. Elisa almost sounded relieved.", "unreachable_a": "Elisa could not reach that. Elisa is small. We've been over this.", "unreachable_b": "Too far, Elisa. Walk first. Then touch.", "hall_dark": "Elisa stepped into the dark hallway without a light. Bold. Foolish, but bold.", "hall_lamp": "Flashlight in hand, Elisa stepped into the hallway. And the story could finally begin.", "death1": "Ouch. That did not seem pleasant.", "death2": "Well. Elisa did not think things through.", "death_end": "And that, I'm afraid, was the end of Elisa. For tonight.", "death_wardrobe": "Never open a wardrobe that opens itself. Elementary.", "death_bed": "Looking under the bed. In the dark. A classic, at least.", "death_dark": "The dark hallway. Without a light. Elisa was brave. Briefly.", "death_paralysis": "Elisa did not move. The night moved for her."};
 const narrBuf={},narrSeen=new Set();let narrSrc=null,narrUntil=0;
 function narrLoad(id){if(narrBuf[id]||!AC)return narrBuf[id];narrBuf[id]=fetch("sons/narr/"+id+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).catch(()=>null);return narrBuf[id]}
 const narrQ=[];const pick=a=>a[Math.random()*a.length|0];
@@ -680,7 +680,7 @@ function buildHotspots(){
       take:set=>{const lit=takeCell("Shelf");set(cellLine(lit),[])}},
     t:S.cellShelf?"The dolls. They’re still watching me.":"The dolls are watching me. Something is on the shelf…"}));
   hotspot("porte","Go out into the hallway",[3.5,0,0,4.5,0.2,2.1],.6,()=>{
-    if(!S.hasLamp)return endDark();endCorridor()});
+    toDoor(()=>S.hasLamp?endCorridor():endDark())});
 }
 
 function lookAt(p){const ry=elisa.rotation.y,dx=p.x-elisa.position.x,dz=p.z-elisa.position.z,l=Math.hypot(dx,dz)||1;return(Math.sin(ry)*dx+Math.cos(ry)*dz)/l}
@@ -791,7 +791,8 @@ const EYE_CURSOR='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http
 let wakeIris=false;const _ip=new THREE.Vector3();
 function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
-function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
+let wakeTok=0;
+function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;S.doorOpen=false;S.stretched=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
   setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.gotLamp=false;S.cells=0;S.cellShelf=false;S.cellChest=false;S.path=null;S.onArrive=null;
   if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");$("inv").textContent="Flashlight";
@@ -802,20 +803,26 @@ function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$
   droneLevel(.0,.1);
   const t1=first?700:300,C=$("closing");
   later(()=>cry(),t1);
-  // elle se réveille en sursaut : un cercle serré sur elle et le lit, puis le noir se retire peu à peu
-  later(()=>{gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
+  const wk=++wakeTok,line=first?"wake1":S.died?"wake2d":pick(["wake2a","wake2b","wake2c"]);S.died=false;S.saidGetup=false;
+  // le cri s'éteint dans le noir, le narrateur parle, puis la chambre apparaît sur une inspiration
+  later(()=>narrThen(line,()=>{if(wk===wakeTok)later(reveal,250)}),t1+2300);
+  function reveal(){if(wk!==wakeTok)return;gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
     $("dark").style.transition="none";$("dark").style.opacity=0;droneLevel(.55,2);
-    later(()=>S.mode!=="wake"?0:first?narr("wake1"):S.died?narr("wake2d"):narrAny(["wake2a","wake2b","wake2c"]),500);S.died=false;later(()=>{if(S.mode==="wake")narrAny(["nudge_a","nudge_b"])},5200);
     later(()=>anim(3800,k=>{const e=k*k*(3-2*k);C.style.setProperty("--r",(4+86*e)+"%");C.style.setProperty("--soft",(9+30*e)+"%")},
-      ()=>{wakeIris=false;C.style.opacity=0;C.style.setProperty("--soft","18%");C.style.setProperty("--cx","50%");C.style.setProperty("--cy","55%")}),900);
-    later(()=>{if(!S.stretched)endParalysis()},9000)},t1+650);
+      ()=>{wakeIris=false;C.style.opacity=0;C.style.setProperty("--soft","18%");C.style.setProperty("--cx","50%");C.style.setProperty("--cy","55%")}),300);
+    // si elle reste au lit : le narrateur raconte qu'elle se lève… puis la relance, puis la paralysie
+    const still=()=>wk===wakeTok&&S.mode==="wake"&&!S.stretched;
+    later(()=>{if(!still())return;S.saidGetup=true;narrThen("getup",()=>later(()=>{if(!still())return;
+      narrThen("nudge_a",()=>later(()=>{if(!still())return;
+        narrThen("nudge_b",()=>later(()=>{if(still())endParalysis()},7000))},6000))},1400))},6500)}
 }
 function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hideChip();
   // la voix raconte le lever pendant qu'elle se lève ; puis « she… » — l'armoire grince dans la pause — « wait. »
   for(let i=narrQ.length-1;i>=0;i--)if(/^(wake|nudge)/.test(narrQ[i].id))narrQ.splice(i,1);
-  narrThen("getup",()=>later(()=>narrThen("wait",()=>{
+  const goWait=()=>narrThen("wait",()=>{
       later(()=>narrThen("wardrobe",()=>{whisper2();later(()=>{S.monsters=true;setEyes("placard");narr("eyes_wardrobe")},300)}),300)},
-      [[2.45,()=>{creak();placardDoor(-50,1800);later(()=>setEyes("placard"),1100)}]]),900));
+      [[2.45,()=>{creak();placardDoor(-50,1800);later(()=>setEyes("placard"),1100)}]]);
+  if(S.saidGetup)later(goWait,1600);else{S.saidGetup=true;narrThen("getup",()=>later(goWait,900))}
   sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.mode="play"}),450)))}
 /* ---------- paralysie du sommeil : une ombre-main qui rampe au sol, grimpe le pied du lit et avance sur la couette ----------
    Une bande de géométrie épouse le trajet (sol -> face du pied de lit -> dessus -> couette). Le shader y dessine,
@@ -858,10 +865,13 @@ function endParalysis(){S.mode="busy";hideChip();narr("paralysis");heart(64);dro
     if(k>.55){const v=(k-.55)/.45;C.style.setProperty("--r",(70-62*v)+"%");C.style.opacity=Math.min(1,v*1.3)}},
     ()=>{crawl.mesh.visible=false;ending("paralysie")})}
 function scare(id){S.mode="busy";hideChip();follow=null;stinger();const s=$("scare");s.classList.add("on");later(()=>{s.classList.remove("on");ending(id)},1100)}
-function endDark(){S.mode="busy";hideChip();follow=null;roomDoor(true);
+function toDoor(next){S.mode="busy";hideChip();follow=null;
+  walkTo(4.0,.5,()=>{{const p=V(4.0,0,0),r0=elisa.rotation.y;let d=Math.atan2(p.x-elisa.position.x,p.z-elisa.position.z)-r0;d=Math.atan2(Math.sin(d),Math.cos(d));anim(400,k=>elisa.rotation.y=r0+d*ease(k))}roomDoor(true);S.doorOpen=true;
+    later(()=>narrThen("threshold",()=>later(next,500)),800)})}
+function endDark(){S.mode="busy";hideChip();follow=null;if(!S.doorOpen)roomDoor(true);S.doorOpen=false;
   walkTo(4.0,-0.6,()=>{elisa.visible=false;narr("hall_dark");heart(80);droneLevel(1,1);
     anim(4800,k=>{caHold=k*.7;hemi.intensity=.32*(1-k);moon.intensity=3.4*(1-k);nightBase=.9*(1-k);$("closing").style.setProperty("--r",(70-65*k)+"%");$("closing").style.opacity=k},()=>ending("noir"))})}
-function endCorridor(){S.mode="busy";hideChip();follow=null;roomDoor(true);
+function endCorridor(){S.mode="busy";hideChip();follow=null;if(!S.doorOpen)roomDoor(true);S.doorOpen=false;
   walkTo(4.0,-0.6,()=>{elisa.visible=false;narr("hall_lamp");
     anim(3000,k=>{$("dark").style.opacity=k},()=>ending("couloir"))})}
 const DEATH={placard:"death_wardrobe",souslit:"death_bed",noir:"death_dark",paralysie:"death_paralysis"};

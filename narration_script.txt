@@ -1,38 +1,70 @@
-GOOD NIGHT ELISA — narrator script (voice: Cruella, ElevenLabs)
-One file per line, MP3, named exactly as below. Send them back and they drop straight into the game.
+GOOD NIGHT ELISA — narrator script (voice: George, ElevenLabs)
 
 wake1.mp3
-This is the story of a little girl named Elisa. Every night, she woke up in the dark. And every night, she was very, very brave. Or so she told herself.
+A scream. Muffled. It woke Elisa up.
 
-wake2.mp3
-And once again, Elisa woke up. Some children never learn.
+wake2a.mp3
+Ok so. A scream, muffled, woke Elisa up.
 
-nudge.mp3
-Elisa could, of course, simply get up. Any time now, darling.
+wake2b.mp3
+Hm. Ok. Let's start over.
+
+wake2c.mp3
+Again. A scream. Again, Elisa woke up.
+
+wake2d.mp3
+Back in bed. As if nothing happened. Lucky girl.
+
+nudge_a.mp3
+Any time now, Elisa.
+
+nudge_b.mp3
+The bed won't climb out of itself.
+
+paralysis.mp3
+But, paralysed, she felt a dark weight pressing against her chest, and...
 
 getup.mp3
-Elisa climbed out of bed, determined to find her parents.
+She climbed out of bed, with the urge to see where it came from.
+
+wait.mp3
+Determined to find her parents, she... wait.
 
 wardrobe.mp3
 The wardrobe door opened. By itself. Naturally.
 
-idle.mp3
+eyes_wardrobe.mp3
+Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.
+
+eyes_bed.mp3
+Then, under the bed. Two eyes. Patient ones.
+
+scan_a.mp3
+In the cold, she looked around her room, searching for something useful.
+
+scan_b.mp3
+Looking is free. Walking, apparently, costs extra.
+
+scan_c.mp3
+Elisa's eyes wandered. Her feet did not.
+
+idle_a.mp3
 Elisa stood perfectly still, waiting, perhaps, for the dark to get bored.
+
+idle_b.mp3
+Elisa waited. The dark waited too. It's better at it.
 
 bed.mp3
 Elisa considered going back to bed. A tempting idea. Also a cowardly one.
 
 drawer.mp3
-In the desk drawer, Elisa found her flashlight. How wonderfully convenient.
+The girl checked the desk drawer.
+
+flashlight.mp3
+Ah, a flashlight... Elisa had a bright idea. But...
 
 nobatt.mp3
 It did not turn on. Of course it didn't. Nothing is ever that easy.
-
-batt1.mp3
-One battery. Elisa needed two. Mathematics can be so cruel.
-
-batt2.mp3
-And the second battery. Light, at last.
 
 dolls.mp3
 The dolls on the shelf watched Elisa. They always did.
@@ -41,7 +73,7 @@ chest.mp3
 The toy chest. Full of old friends. Most of them harmless.
 
 window.mp3
-Outside, the garden. And the doghouse. Whatever had been chained there was no longer chained there.
+Outside, the garden. And the doghouse. Whatever had been chained there was no longer... chained there.
 
 drawing.mp3
 A drawing. Elisa didn't remember drawing it. That was the interesting part.
@@ -49,11 +81,23 @@ A drawing. Elisa didn't remember drawing it. That was the interesting part.
 bunny.mp3
 Bunny was asleep. Bunny was always asleep when Elisa needed him.
 
-eyes_wardrobe.mp3
-Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.
+again_a.mp3
+Elisa looked again. Nothing had changed. Things rarely do.
 
-eyes_bed.mp3
-Then, under the bed. Two eyes. Patient ones.
+again_b.mp3
+Still there. Still the same.
+
+again_c.mp3
+Elisa checked again. Thorough. Or stalling.
+
+drawer_empty.mp3
+The drawer. Still a drawer.
+
+batt1.mp3
+One battery. Elisa needed two. Mathematics can be so cruel.
+
+batt2.mp3
+And the second battery. Light, at last.
 
 coats.mp3
 Coats. Just coats. How very disappointing for everyone.
@@ -61,21 +105,38 @@ Coats. Just coats. How very disappointing for everyone.
 toys.mp3
 Toys. Only toys. Elisa almost sounded relieved.
 
+unreachable_a.mp3
+Elisa could not reach that. Elisa is small. We've been over this.
+
+unreachable_b.mp3
+Too far, Elisa. Walk first. Then touch.
+
 hall_dark.mp3
 Elisa stepped into the dark hallway without a light. Bold. Foolish, but bold.
 
 hall_lamp.mp3
 Flashlight in hand, Elisa stepped into the hallway. And the story could finally begin.
 
-end_scare.mp3
+death1.mp3
+Ouch. That did not seem pleasant.
+
+death2.mp3
+Well. Elisa did not think things through.
+
+death_end.mp3
 And that, I'm afraid, was the end of Elisa. For tonight.
 
-end_paralysis.mp3
+death_wardrobe.mp3
+Never open a wardrobe that opens itself. Elementary.
+
+death_bed.mp3
+Looking under the bed. In the dark. A classic, at least.
+
+death_dark.mp3
+The dark hallway. Without a light. Elisa was brave. Briefly.
+
+death_paralysis.mp3
 Elisa did not move. The night moved for her.
 
-unreachable.mp3
-Elisa could not reach that. Elisa is small. We've been over this.
 
-again.mp3
-Elisa looked again. Nothing had changed. Things rarely do.
-
+threshold: The dark, beyond the threshold of the bedroom door, gave the girl goosebumps.
