@@ -552,7 +552,7 @@ function smooth(p,tx,ty){const last=p[p.length-1];const[ti,tj]=cellOf(tx,ty);if(
   const out=[p[0]];let i=0;while(i<p.length-1){let j=p.length-1;while(j>i+1&&!lineFree(p[i],p[j]))j--;out.push(p[j]);i=j}return out}
 
 /* ---------- état du jeu et horloge (tout s'arrête en pause) ---------- */
-const S={mode:"title",stretched:false,hasLamp:false,eyes:"none",monsters:false,saidBed:false,path:null,onArrive:null};
+const S={mode:"title",stretched:false,hasLamp:false,gotLamp:false,cells:0,cellShelf:false,cellChest:false,eyes:"none",monsters:false,saidBed:false,path:null,onArrive:null};
 let lampGlow=null,elisaGlow=null;
 let gt=0,paused=false;const timers=[],anims=[];
 function later(fn,ms){const t={at:gt+ms/1000,fn};timers.push(t);return t}
@@ -601,19 +601,25 @@ function distToHot(h){const b=h.userData.box,[x,y]=elisaXY();return Math.hypot(M
 function buildHotspots(){
   hotspot("lit","Go back to bed",[1.5,0.2,0.25,2.5,2.2,0.7],.6,h=>focusObj(h,{k:"My bed",t:"No. I want Mommy.",zoom:1.7,mood:"non"}));
   hotspot("souslit","Look under the bed",[2.35,0.3,0,2.65,2.1,0.28],.6,()=>inspect("souslit",hot.find(h=>h.userData.id==="souslit")));
-  hotspot("bureau","Open the drawer",[0.15,0.4,0.5,0.8,1.9,0.8],.6,h=>focusObj(h,{k:"The desk drawer",zoom:2.3,mood:S.hasLamp?"bof":"",
+  hotspot("bureau","Open the drawer",[0.15,0.4,0.5,0.8,1.9,0.8],.6,h=>focusObj(h,{k:"The desk drawer",zoom:2.3,mood:S.gotLamp?"bof":"",
     // l'illustration du tiroir : un clic sur la lampe la fait disparaître (Elisa la prend)
     img:{src:"tiroir.webp",alt:"The open drawer: a flashlight on sheets of paper, pencils, scissors, a ruler, cracked glasses, marbles and a notebook with Elisa’s name.",
-      after:"tiroir_vide.webp",afterAlt:"The same drawer, without the flashlight.",taken:S.hasLamp,
-      take:set=>{takeLamp();set("The flashlight. Now I’m not scared anymore.",[])}},
-    t:S.hasLamp?"The drawer. No more flashlight.":"My flashlight is in here, at the back of the drawer.",
+      after:"tiroir_vide.webp",afterAlt:"The same drawer, without the flashlight.",taken:S.gotLamp,
+      take:set=>{const lit=takeLamp();set(lit?"The flashlight. With the batteries… it works. Now I’m not scared anymore.":"The flashlight. It doesn’t turn on… the batteries are gone.",[])}},
+    t:S.gotLamp?"The drawer. No more flashlight.":"My flashlight is in here, at the back of the drawer.",
     onOpen:()=>{drawer(true);drawerSnd()},onClose:()=>{drawer(false);if(AC&&!sfx("tiroir_ferme",{vol:.85}))drawerSnd()}}));
   hotspot("dessin","Look at the drawing",[0,0.8,1.1,0.12,1.35,1.8],1.0,h=>focusObj(h,{zoom:2.3,after:()=>{$("s-drawing").hidden=false;$("b-dclose").focus({preventScroll:true})}}));
   hotspot("placard","Open the wardrobe",[0,3.34,0,0.55,4.46,2.0],.6,()=>inspect("placard",hot.find(h=>h.userData.id==="placard")));
   hotspot("fenetre","Look outside",[0,2.2,1.0,0.15,3.0,2.1],1.0,h=>focusObj(h,{k:"The window",t:"The moon. The garden is pitch black.",zoom:2.2,mood:"bof"}));
   hotspot("doudou","Take Bunny",[1.68,0.72,0.55,2.02,1.08,0.98],.95,h=>focusObj(h,{k:"Bunny",t:"Bunny is still asleep. I’ll be right back.",zoom:2.6}));
-  hotspot("coffre","Search the toy chest",[3.8,4.0,0,4.6,4.8,0.8],.6,h=>focusObj(h,{k:"The toy chest",t:"My toys. Nothing that helps tonight.",zoom:2.2,mood:"bof"}));
-  hotspot("etagere","Look at the plushies",[4.5,0.12,0,5.0,0.48,1.4],.7,h=>focusObj(h,{k:"The plushies",t:"They always watch me at night.",zoom:2.3,mood:"bof"}));
+  hotspot("coffre","Search the toy chest",[3.8,4.0,0,4.6,4.8,0.8],.6,h=>focusObj(h,{k:"The toy chest",mood:S.cellChest?"bof":"",
+    t:S.cellChest?"My toys. Nothing else in there.":"Under my toys… a battery, from my old robot.",
+    actions:S.cellChest?[]:[{label:"Take the battery",fn:set=>{const lit=takeCell("Chest");set(cellLine(lit),[])}}]}));
+  hotspot("etagere","Look at the shelf",[4.5,0.12,0,5.0,0.48,1.4],.7,h=>focusObj(h,{k:"The doll shelf",mood:S.cellShelf?"bof":"",
+    img:{src:"poupees.webp",alt:"The shelf: old books, porcelain dolls, a music box, a clock, a snow globe, a candle, and a battery on the middle shelf.",
+      after:"poupees_vide.webp",afterAlt:"The same shelf, without the battery.",taken:S.cellShelf,takeRect:[8.6,42,6.8,15],takeLabel:"Take the battery",
+      take:set=>{const lit=takeCell("Shelf");set(cellLine(lit),[])}},
+    t:S.cellShelf?"The dolls. They’re still watching me.":"The dolls are watching me. Something is on the shelf…"}));
   hotspot("porte","Go out into the hallway",[3.5,0,0,4.5,0.2,2.1],.6,()=>{
     if(!S.hasLamp)return endDark();endCorridor()});
 }
@@ -665,7 +671,8 @@ let popOnClose=null;
 let popMood="";
 function showPop(k,t,actions,onClose,img,lock,mood){popMood=mood||"";if(!(lock&&!(img&&img.after)))(mood==="non"?humNope:humIn)();const P=$("pop");P.classList.remove("lunge");P.dataset.lock=lock?"1":"";$("pop-k").textContent=k;const fg=$("pop-fig"),tk=$("pop-take");fg.hidden=!img;fg.classList.add("noanim");fg.classList.remove("taken","flash","fadein","lunge");void fg.offsetWidth;fg.classList.remove("noanim");fg.style.removeProperty("--eyes");if(img&&img.eyes)fg.style.setProperty("--eyes",img.eyes);fg.style.setProperty("--fade",(img&&img.fadeS||.8)+"s");tk.hidden=true;tk.onclick=null;
   if(img){$("pop-img").src=img.src;$("pop-img").alt=img.alt;$("pop-img2").src=img.after||"";$("pop-img2").alt=img.afterAlt||"";
-    if(img.taken)fg.classList.add("taken");if(img.take&&!img.taken){tk.hidden=false;tk.onclick=()=>{tk.hidden=true;fg.classList.add("taken");img.take(setPopBody)}}}
+    if(img.taken)fg.classList.add("taken");const tr=img.takeRect||[46.6,11.3,40.3,37.9];Object.assign(tk.style,{left:tr[0]+"%",top:tr[1]+"%",width:tr[2]+"%",height:tr[3]+"%"});tk.setAttribute("aria-label",img.takeLabel||"Take the flashlight");
+    if(img.take&&!img.taken){tk.hidden=false;tk.onclick=()=>{tk.hidden=true;fg.classList.add("taken");img.take(setPopBody)}}}
   $("pop").classList.toggle("big",!!img);popOnClose=onClose;setPopBody(t,actions);
   // d'abord le fond noir (pour les monstres : un vrai fondu au noir), puis l'image
   $("popbg").classList.add("on");
@@ -680,8 +687,14 @@ function focusObj(h,o){S.mode="busy";S.path=null;walking=false;hideChip();canvas
   o.onOpen&&o.onOpen();
   eyeClose(650,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");if(o.after)return o.after();
     showPop(o.k,o.t,o.actions,()=>{o.onClose&&o.onClose();eyeOpen(650,()=>{if(S.mode==="busy")S.mode="play"})},o.img?Object.assign({delay:120},o.img):null,false,typeof o.mood==="function"?o.mood():o.mood)})}
-function preloadArt(){["sursaut_lit","sursaut_armoire","tiroir","tiroir_vide","lit_lampe","lit_monstre","armoire_lampe","armoire_monstre"].forEach(n=>new Image().src=n+".webp")}  // préchargée : le pop-up s’ouvre sans attendre
-function takeLamp(){S.hasLamp=true;if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=false;click();torch.intensity=55;$("inv").classList.add("on")}
+function preloadArt(){["sursaut_lit","sursaut_armoire","tiroir","tiroir_vide","lit_lampe","lit_monstre","armoire_lampe","armoire_monstre","poupees","poupees_vide"].forEach(n=>new Image().src=n+".webp")}  // préchargée : le pop-up s’ouvre sans attendre
+function invLabel(){const el=$("inv");if(!S.gotLamp&&!S.cells){el.classList.remove("on");return}el.classList.add("on");
+  el.textContent=S.hasLamp?"Flashlight":(S.gotLamp?"Flashlight (no batteries)":"")+(S.gotLamp&&S.cells?" · ":"")+(S.cells?"Batteries "+S.cells+"/2":"")}
+/* la lampe ne marche qu'avec ses deux piles */
+function lampCheck(){if(S.hasLamp||!S.gotLamp||S.cells<2)return false;S.hasLamp=true;torchOn();torch.intensity=55;invLabel();return true}
+function takeLamp(){S.gotLamp=true;if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=false;invLabel();return lampCheck()}
+function takeCell(where){S["cell"+where]=true;S.cells++;if(AC)sfx("allumer",{vol:.4,rate:.7});invLabel();return lampCheck()}
+const cellLine=lit=>lit?"Both batteries. Click… it works. Now I’m not scared anymore.":S.cells===1?"A battery. I need one more.":"A battery!";
 function closeDrawing(){if($("s-drawing").hidden)return;$("s-drawing").hidden=true;eyeOpen(650,()=>{S.mode="play";think("The path to the doghouse. Did I draw that?")},0,420)}
 
 /* ---------- curseur « œil » au survol des endroits à fouiller (pas le lit, pas la porte) ---------- */
@@ -694,8 +707,8 @@ function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
 function prologue(first){$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
-  setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.path=null;S.onArrive=null;
-  if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");
+  setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.gotLamp=false;S.cells=0;S.cellShelf=false;S.cellChest=false;S.path=null;S.onArrive=null;
+  if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");$("inv").textContent="Flashlight";
   if(nodes.PIV_Placard_porte)nodes.PIV_Placard_porte.rotation.y=0;if(nodes.PIV_Tiroir_bureau&&nodes.PIV_Tiroir_bureau._x!=null)nodes.PIV_Tiroir_bureau.position.x=nodes.PIV_Tiroir_bureau._x;
   if(nodes.PIV_Porte_couloir)nodes.PIV_Porte_couloir.rotation.y=0;elisa.visible=true;
   hemi.intensity=.32;moon.intensity=3.4;nightBase=.9;$("closing").style.opacity=0;
