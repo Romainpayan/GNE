@@ -570,11 +570,11 @@ function placardDoor(angleDeg,ms){const p=nodes.PIV_Placard_porte;if(!p)return;c
 function drawer(open){const p=nodes.PIV_Tiroir_bureau;if(!p)return;if(p._x==null)p._x=p.position.x;const from=p.position.x,to=p._x+(open?.32:0);anim(500,k=>p.position.x=from+(to-from)*ease(k))}
 function roomDoor(open,ms){const p=nodes.PIV_Porte_couloir;if(!p)return;if(open)doorSnd();const from=p.rotation.y,to=open?-1.35:0;anim(ms||900,k=>p.rotation.y=from+(to-from)*ease(k))}
 /* aberration chromatique : impulsions sur les moments effrayants, qui retombent doucement */
-let caLevel=0,caHold=0;
+let caLevel=0,caHold=0,glMax=1;   // glMax : plafond du glitch (bas pendant la paralysie)
 function caPulse(v){caLevel=Math.max(caLevel,v);if(v>=.45)glitchDom()}
 function glitchDom(){document.body.classList.remove("glitch");void document.body.offsetWidth;document.body.classList.add("glitch");clearTimeout(glitchDom.t);glitchDom.t=setTimeout(()=>document.body.classList.remove("glitch"),520)}
 function caTick(dt){caLevel=Math.max(caHold,caLevel-dt*.9);const v=REDUCE?caLevel*.3:caLevel;
-  postMat.uniforms.ca.value=v;postMat.uniforms.gl.value=Math.max(0,Math.min(1,(caLevel-.3)*1.3))*(REDUCE?0:1);const px=(v*9).toFixed(1);document.body.classList.toggle("ca-on",v>.02);
+  postMat.uniforms.ca.value=v;postMat.uniforms.gl.value=Math.max(0,Math.min(glMax,(caLevel-.3)*1.3))*(REDUCE?0:1);const px=(v*9).toFixed(1);document.body.classList.toggle("ca-on",v>.02);
   if(v>.02){$("caR").setAttribute("dx",px);$("caB").setAttribute("dx",-px)}}
 function setEyes(where){if(where!=="none"&&where!==S.eyes)caPulse(.5);S.eyes=where;eyesPlacard.userData.target=where==="placard"?1:0;eyesBed.userData.target=where==="bed"?1:0}
 
@@ -668,7 +668,7 @@ const EYE_CURSOR='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http
 let wakeIris=false;const _ip=new THREE.Vector3();
 function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
-function prologue(first){caHold=0;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
+function prologue(first){caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
   setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.path=null;S.onArrive=null;
   if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");
@@ -727,7 +727,7 @@ const crawl=(()=>{const path=[[3.95,.008],[2.275,.008],[2.275,.64],[2.17,.64],[2
 function endParalysis(){S.mode="busy";hideChip();think("I can’t move.",3000);heart(64);droneLevel(.9,1.5);
   const C=$("closing");crawl.mesh.visible=true;crawl.m.uniforms.op.value=1;
   const reach=crawl.length-.1-.2; // les doigts remontent sur elle jusqu'à son visage, la masse la recouvre
-  anim(7000,k=>{caHold=k*.9;const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;crawl.m.uniforms.F.value=.2+e*reach;crawl.m.uniforms.time.value=gt;
+  glMax=.12;anim(7000,k=>{caHold=k*.9;const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;crawl.m.uniforms.F.value=.2+e*reach;crawl.m.uniforms.time.value=gt;
     if(k>.55){const v=(k-.55)/.45;C.style.setProperty("--r",(70-62*v)+"%");C.style.opacity=Math.min(1,v*1.3)}},
     ()=>{crawl.mesh.visible=false;ending("paralysie")})}
 function scare(id){S.mode="busy";hideChip();follow=null;stinger();const s=$("scare");s.classList.add("on");later(()=>{s.classList.remove("on");ending(id)},1100)}
@@ -737,7 +737,7 @@ function endDark(){S.mode="busy";hideChip();follow=null;roomDoor(true);
 function endCorridor(){S.mode="busy";hideChip();follow=null;roomDoor(true);
   walkTo(4.0,-0.6,()=>{elisa.visible=false;think("The flashlight lights up the hallway. At the end, a portrait…",3800);
     anim(3000,k=>{$("dark").style.opacity=k},()=>ending("couloir"))})}
-function ending(id){caHold=0;caPulse(1.2);if(AC)sfx("cri_fin",{vol:.9});stopHeart();musicLevel(.5,1.5);droneLevel(.25,1);const e=ENDINGS.find(x=>x.id===id);found.add(id);saveFound();
+function ending(id){caHold=0;glMax=1;caPulse(1.2);if(AC)sfx("cri_fin",{vol:.9});stopHeart();musicLevel(.5,1.5);droneLevel(.25,1);const e=ENDINGS.find(x=>x.id===id);found.add(id);saveFound();
   $("end-n").textContent=e.n;$("end-t").textContent=e.t;
   $("end-s").textContent=id==="couloir"?`End of the prototype. Endings found: ${[...found].filter(x=>x!=="couloir").length} of 4.`:"Elisa wakes up with a start.";
   $("b-again").textContent="Wake up";$("s-end").hidden=false;S.mode="ending"}
