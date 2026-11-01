@@ -1126,11 +1126,20 @@ requestAnimationFrame(loop);
 /* ---------- outil développeur (touche ² / ` ou F2) ---------- */
 #dev-btn{position:fixed;left:10px;bottom:10px;z-index:40;font:600 10px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.08em;color:#ff4a4a;background:#0b0b0d;border:1px solid #3a1515;border-radius:4px;padding:6px 8px;opacity:.55;cursor:pointer}
 #dev-btn:hover{opacity:1}
-#dev{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);z-index:41;display:flex;flex-direction:column;background:#0d0d10f2;color:#ddd;border-left:1px solid #2a2a30;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;box-shadow:-12px 0 40px #000a;cursor:auto}
+#dev{position:fixed;top:12px;left:calc(100vw - 452px);width:min(440px,calc(100vw - 16px));height:min(78vh,760px);min-width:280px;min-height:180px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);resize:both;overflow:hidden;z-index:41;display:flex;flex-direction:column;background:#0d0d10f2;color:#ddd;border:1px solid #2a2a30;border-radius:8px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;box-shadow:-12px 0 40px #000a;cursor:auto}
 #dev[hidden]{display:none}
 #dev *{box-sizing:border-box;cursor:auto}
 #dev button,#dev summary{cursor:pointer;font:inherit}
-#dev header{display:flex;gap:6px;align-items:center;padding:10px 10px 8px;border-bottom:1px solid #222}
+#dev header{display:flex;gap:6px;align-items:center;padding:10px 10px 8px;border-bottom:1px solid #222;cursor:move;touch-action:none;user-select:none}
+#dev header b{cursor:move}
+#dev.min{height:auto!important;min-height:0;resize:none}
+#dev.min>:not(header){display:none}
+#dev .send{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #222;background:#1a0d0d}
+#dev .send button{background:#ff3030;color:#000;border:0;border-radius:4px;padding:7px 11px;font-weight:700}
+#dev .send button:disabled{opacity:.45;cursor:progress}
+#dev .send span{font-size:11px;color:#c99}
+#dev .note.queued{border-color:#ff7a30}
+@media (max-width:520px){#dev{left:4px!important;width:calc(100vw - 8px)!important}}
 #dev header b{color:#ff4a4a;letter-spacing:.1em;margin-right:auto}
 #dev .tab{background:none;border:1px solid #333;color:#aaa;border-radius:4px;padding:4px 9px}
 #dev .tab.on{background:#ff3030;border-color:#ff3030;color:#000}
@@ -1173,7 +1182,8 @@ requestAnimationFrame(loop);
 </style>
 <button id="dev-btn" type="button" hidden>DEV</button>
 <aside id="dev" hidden aria-label="Developer tools">
-  <header><b>DEV</b><button class="tab on" data-tab="voices" type="button">Voices</button><button class="tab" data-tab="notes" type="button">Notes</button><button class="x" id="dev-x" type="button" aria-label="Close">✕</button></header>
+  <header><b>DEV</b><button class="tab on" data-tab="voices" type="button">Voices</button><button class="tab" data-tab="notes" type="button">Notes</button><button class="x" id="dev-min" type="button" aria-label="Minimise">–</button><button class="x" id="dev-x" type="button" aria-label="Close">✕</button></header>
+  <div class="send"><button id="dev-send" type="button">Send to Claude</button><span id="dev-send-st"></span></div>
   <div class="pausebar"><button id="dev-pause" type="button">❚❚ Dev pause</button><span id="dev-state"></span></div>
   <div class="now" id="dev-now"><span style="color:#666">No line playing.</span></div>
   <div class="body" id="dev-voices"></div>
@@ -1185,12 +1195,21 @@ const G=window.__GNE;if(!G)return;
 const $d=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const PROJECT="61b52f19-4eab-4460-9f16-a3c318b7ac10",SUNRA="Sunra";
 const panel=$d("dev"),btn=$d("dev-btn");
-let db=null,mcp=null,assets=null,voices={},notes=[],tab="voices",dur={},miss={},busy={},msgs={},filter="",composing=null;
+let cfg={},sending=false,sendMsg="",db=null,mcp=null,assets=null,voices={},notes=[],tab="voices",dur={},miss={},busy={},msgs={},filter="",composing=null;
 const ORIG=Object.assign({},G.NARR);
 
 /* ---------- ouverture ---------- */
-function open(on){panel.hidden=!on;if(on){loadDurations();render()}}
+function open(on){panel.hidden=!on;if(on){clampPos();loadDurations();render()}}
 btn.onclick=()=>open(panel.hidden);$d("dev-x").onclick=()=>open(false);
+$d("dev-min").onclick=()=>{panel.classList.toggle("min");savePos()};
+function savePos(){try{localStorage.setItem("gne-dev-pos",JSON.stringify({l:panel.offsetLeft,t:panel.offsetTop,w:panel.offsetWidth,h:panel.offsetHeight,min:panel.classList.contains("min")}))}catch(e){}}
+function clampPos(){const r=panel.getBoundingClientRect();let l=Math.min(Math.max(4,r.left),innerWidth-80),t=Math.min(Math.max(4,r.top),innerHeight-40);panel.style.left=l+"px";panel.style.top=t+"px"}
+try{const p=JSON.parse(localStorage.getItem("gne-dev-pos")||"null");if(p){panel.style.left=p.l+"px";panel.style.top=p.t+"px";if(p.w)panel.style.width=p.w+"px";if(p.h)panel.style.height=p.h+"px";if(p.min)panel.classList.add("min")}}catch(e){}
+(()=>{const hd=panel.querySelector("header");let d=null;
+  hd.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;const r=panel.getBoundingClientRect();d={x:e.clientX-r.left,y:e.clientY-r.top,id:e.pointerId};hd.setPointerCapture(e.pointerId);e.preventDefault()});
+  hd.addEventListener("pointermove",e=>{if(!d)return;panel.style.left=Math.min(Math.max(4-panel.offsetWidth+80,e.clientX-d.x),innerWidth-80)+"px";panel.style.top=Math.min(Math.max(4,e.clientY-d.y),innerHeight-40)+"px"});
+  const up=()=>{if(d){d=null;savePos()}};hd.addEventListener("pointerup",up);hd.addEventListener("pointercancel",up);
+  new ResizeObserver(()=>{if(!panel.hidden)savePos()}).observe(panel);addEventListener("resize",()=>{if(!panel.hidden)clampPos()})})();
 addEventListener("keydown",e=>{if(e.code==="Backquote"||e.key==="F2"){if(e.target.closest&&e.target.closest("#dev input,#dev textarea"))return;e.preventDefault();open(panel.hidden)}},true);
 if(/[#?&]dev/.test(location.href))btn.hidden=false;
 panel.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;panel.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));$d("dev-voices").hidden=tab!=="voices";$d("dev-notes").hidden=tab!=="notes";render()});
@@ -1263,20 +1282,36 @@ function renderNotes(){const box=$d("dev-notes");
   let h=!db?'<div class="warn">Notes are saved only inside the claude.ai artifact (signed in).</div>':"";
   if(composing)h+=`<div class="compose">${composing.shot?`<img src="${composing.shot}" alt="Frame at the pause">`:""}<div class="ctx">${esc(ctxText(composing.ctx))}</div>
     <textarea id="dev-note-text" rows="4" placeholder="What should change here?" style="margin-top:6px">${esc(composing.text)}</textarea>
-    <div class="acts"><button class="go" id="dev-note-save" type="button" ${db?"":"disabled"}>Save note</button><button id="dev-note-cancel" type="button">Cancel</button></div><div class="msg" id="dev-note-msg"></div></div>`;
+    <div class="acts"><button class="go" id="dev-note-send" type="button" ${db&&mcp&&cfg.triggerId?"":"disabled"}>Save &amp; send to Claude</button><button id="dev-note-save" type="button" ${db?"":"disabled"}>Save only</button><button id="dev-note-cancel" type="button">Cancel</button></div><div class="msg" id="dev-note-msg"></div></div>`;
   else h+=`<div class="acts" style="margin-bottom:8px"><button class="go" id="dev-note-new" type="button">+ Note at this moment</button></div>`;
-  h+=`<h4>${notes.length} note${notes.length===1?"":"s"}</h4>`+notes.map(n=>`<div class="note ${n.status==="resolved"?"done":""}"><div>${esc(n.text)}</div><div class="ctx">${esc(n.ctx?ctxText(n.ctx):"")}${n.status==="resolved"?" · resolved":""}${n.reply?"<br>↳ "+esc(n.reply):""}</div>${n.shotUrl?`<img src="${esc(n.shotUrl)}" alt="" loading="lazy">`:""}
+  h+=`<h4>${notes.length} note${notes.length===1?"":"s"}</h4>`+notes.map(n=>`<div class="note ${n.status==="resolved"?"done":n.status==="queued"?"queued":""}"><div>${esc(n.text)}</div><div class="ctx">${esc(n.ctx?ctxText(n.ctx):"")}${n.status==="resolved"?" · resolved":n.status==="queued"?" · sent to Claude…":""}${n.reply?"<br>↳ "+esc(n.reply):""}</div>${n.shotUrl?`<img src="${esc(n.shotUrl)}" alt="" loading="lazy">`:""}
     <div class="acts">${n.status==="resolved"?"":`<button data-n="${esc(n.id)}" data-a="resolve" type="button">Mark resolved</button>`}<button data-n="${esc(n.id)}" data-a="del" type="button">Delete</button></div></div>`).join("");
   box.innerHTML=h;
   const t=$d("dev-note-text");if(t)t.oninput=()=>composing.text=t.value;
   const nn=$d("dev-note-new");if(nn)nn.onclick=()=>{G.devPause(true);startNote();render()};
   const c=$d("dev-note-cancel");if(c)c.onclick=()=>{composing=null;render()};
-  const sv=$d("dev-note-save");if(sv)sv.onclick=saveNote;
+  const sv=$d("dev-note-save");if(sv)sv.onclick=()=>saveNote(false);const ss=$d("dev-note-send");if(ss)ss.onclick=()=>saveNote(true);
   box.querySelectorAll("button[data-n]").forEach(b=>b.onclick=async()=>{const id=b.dataset.n;try{if(b.dataset.a==="del")await db.collection("notes").doc(id).delete();else await db.collection("notes").doc(id).update({status:"resolved"})}catch(e){}})}
-async function saveNote(){if(!db||!composing||!composing.text.trim())return;const m=$d("dev-note-msg"),sv=$d("dev-note-save");sv.disabled=true;m.textContent="Saving…";
+async function saveNote(send){if(!db||!composing||!composing.text.trim())return;const m=$d("dev-note-msg"),sv=$d("dev-note-save");sv.disabled=true;m.textContent="Saving…";
   try{let shotId=null,shotUrl=null;if(assets&&composing.shot){try{const blob=await (await fetch(composing.shot)).blob();const a=await assets.upload(blob);shotId=a.id;shotUrl=a.url}catch(e){}}
-    await db.collection("notes").add({text:composing.text.trim(),ctx:composing.ctx,shotId,shotUrl,status:"open",createdAt:Date.now()});composing=null;render()}
+    const ref=await db.collection("notes").add({text:composing.text.trim(),ctx:composing.ctx,shotId,shotUrl,status:"open",createdAt:Date.now()});const nt={id:ref.id,text:composing.text.trim(),ctx:composing.ctx,status:"open"};if(!notes.some(x=>x.id===ref.id))notes.unshift(nt);composing=null;render();if(send){G.devPause(false);await sendToClaude()}}
   catch(e){m.textContent="Couldn't save ("+(e&&e.code||"error")+").";m.classList.add("err");sv.disabled=false}}
+
+/* ---------- envoyer à Claude : déclenche l'intégration dans la conversation de travail ---------- */
+const CCR="Claude Code Remote";
+function pending(){const n=notes.filter(x=>x.status==="open"||x.status==="queued"),v=Object.entries(voices).filter(([,x])=>x&&["generated","edited","new"].includes(x.status));return{n,v}}
+function renderSend(){const b=$d("dev-send"),st=$d("dev-send-st");if(!b)return;const {n,v}=pending(),c=n.length+v.length;
+  b.disabled=sending||!c||!mcp||!db||!cfg.triggerId;b.textContent=sending?"Sending…":"Send to Claude"+(c?` (${c})`:"");
+  st.textContent=sendMsg||(!db||!mcp?"Only inside the claude.ai artifact.":!cfg.triggerId?"Not linked to Claude yet.":cfg.lastFiredAt&&(!cfg.lastDoneAt||cfg.lastDoneAt<cfg.lastFiredAt)?"Claude is working on it…":c?`${n.length} note${n.length===1?"":"s"}, ${v.length} voice${v.length===1?"":"s"} waiting`:cfg.lastDoneAt?"All integrated ✓":"Nothing to send.")}
+function sendErr(e){const c=e&&e.code;return c==="server_not_connected"?"Claude Code Remote isn't connected for this view.":c==="not_in_manifest"||c==="approval_required"?"Allow “Claude Code Remote” for this page, then click again.":c==="needs_reauth"?"Reconnect Claude Code Remote in claude.ai settings.":c==="tool_error"?"Refused: "+String(e.message||"").slice(0,140):"No answer ("+(c||"error")+"). It may still have been sent — wait a moment before clicking again."}
+async function sendToClaude(){if(sending)return;const {n,v}=pending();if(!n.length&&!v.length)return;sending=true;sendMsg="";renderSend();
+  try{for(const x of n)if(x.status==="open")await db.collection("notes").doc(x.id).update({status:"queued"});
+    const txt="Items to integrate:\n"+n.map(x=>`- note ${x.id}: ${x.text} [${x.ctx?ctxText(x.ctx):""}]`).join("\n")+(v.length?"\n"+v.map(([id,x])=>`- voice ${id} (${x.status}): ${x.text}${x.note?" — note: "+x.note:""}`).join("\n"):"");
+    await mcp.callTool(CCR,"fire_trigger",{trigger_id:cfg.triggerId,text:txt.slice(0,60000)});
+    await db.collection("config").doc("claude").update({lastFiredAt:Date.now()});sendMsg="Sent ✓ — Claude is on it.";setTimeout(()=>{sendMsg="";renderSend()},6000)}
+  catch(e){sendMsg=sendErr(e)}
+  sending=false;renderSend()}
+$d("dev-send").onclick=sendToClaude;renderSend();
 
 /* ---------- stockage ---------- */
 async function saveVoice(id){const v=voices[id];if(!db){try{localStorage.setItem("gne-dev-"+id,JSON.stringify(v))}catch(e){}return}
@@ -1287,8 +1322,10 @@ function applyVoice(id,v){if(!v||v.status==="integrated")return;if(v.text&&v.sta
   const [d,m,a]=await Promise.all([claude.use("db"),claude.use("mcp"),claude.use("assets")]);db=d;mcp=m;assets=a;
   if(db||mcp)btn.hidden=false;
   if(db){const timer=setTimeout(()=>{},10000);
-    db.collection("voices").onSnapshot(s=>{clearTimeout(timer);voices={};s.docs.forEach(x=>{voices[x.id]=Object.assign({},x.data());applyVoice(x.id,voices[x.id])});renderVoicesSoft()},()=>{});
-    db.collection("notes").orderBy("createdAt","desc").onSnapshot(s=>{notes=s.docs.map(x=>Object.assign({id:x.id},x.data()));if(tab==="notes"&&!panel.hidden&&!composing)render()},()=>{})}
+    db.collection("voices").onSnapshot(s=>{clearTimeout(timer);voices={};s.docs.forEach(x=>{voices[x.id]=Object.assign({},x.data());applyVoice(x.id,voices[x.id])});renderSend();renderVoicesSoft()},()=>{});
+    db.collection("notes").orderBy("createdAt","desc").onSnapshot(s=>{notes=s.docs.map(x=>Object.assign({id:x.id},x.data()));renderSend();if(tab==="notes"&&!panel.hidden&&!composing)render()},()=>{});
+    db.doc("config/claude").onSnapshot(x=>{cfg=x.exists?Object.assign({},x.data()):{};renderSend()},()=>{})}
+  renderSend();
   if(!panel.hidden)render()})();
 })();
 </script>
