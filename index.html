@@ -391,7 +391,7 @@ function typeText(el,t,cps,done){clearInterval(typers.get(el));el.setAttribute("
   typers.set(el,setInterval(step,25))}
 /* ---------- narratrice (façon Stanley Parable) : sous-titre tapé + voix, sons/narr/<id>.mp3 ---------- */
 const NARR={"door_no":"I would not open that door. But then... who am I, really?","threshold":"The dark, beyond the threshold of the bedroom door, gave the girl goosebumps.","wake1": "A scream. Muffled. It woke Elisa up.", "wake2a": "Ok so. A scream, muffled, woke Elisa up.", "wake2b": "Hm. Ok. Let's start over.", "wake2c": "Again. A scream. Again, Elisa woke up.", "wake2d": "Back in bed. As if nothing happened. Lucky girl.", "nudge_a": "Any time now, Elisa.", "nudge_b": "The bed won't climb out of itself.", "paralysis": "But, paralysed, she felt a dark weight pressing against her chest, and...", "getup": "She climbed out of bed, with the urge to see where it came from.", "wait": "Determined to find her parents, she... wait.", "wardrobe": "The wardrobe door opened. By itself. Naturally.", "eyes_wardrobe": "Something in the wardrobe was looking at Elisa. Elisa chose not to look back. Wise.", "eyes_bed": "Then, under the bed. Two eyes. Patient ones.", "scan_a": "In the cold, she looked around her room, searching for something useful.", "scan_b": "Looking is free. Walking, apparently, costs extra.", "scan_c": "Elisa's eyes wandered. Her feet did not.", "idle_a": "Elisa stood perfectly still, waiting, perhaps, for the dark to get bored.", "idle_b": "Elisa waited. The dark waited too. It's better at it.", "bed": "Elisa considered going back to bed. A tempting idea. Also a cowardly one.", "drawer": "The girl checked the desk drawer.", "flashlight": "Ah, a flashlight... Elisa had a bright idea. But...", "nobatt": "It did not turn on. Of course it didn't. Nothing is ever that easy.", "dolls": "The dolls on the shelf watched Elisa. They always did.", "chest": "The toy chest. Full of old friends. Most of them harmless.", "window": "Outside, the garden. And the doghouse. Whatever had been chained there was no longer... chained there.", "drawing": "A drawing. Elisa didn't remember drawing it. That was the interesting part.", "bunny": "Bunny was asleep. Bunny was always asleep when Elisa needed him.", "again_a": "Elisa looked again. Nothing had changed. Things rarely do.", "again_b": "Still there. Still the same.", "again_c": "Elisa checked again. Thorough. Or stalling.", "drawer_empty": "The drawer. Still a drawer.", "batt1": "One battery. Elisa needed two. Mathematics can be so cruel.", "batt2": "And the second battery. Light, at last.", "coats": "Coats. Just coats. How very disappointing for everyone.", "toys": "Toys. Only toys. Elisa almost sounded relieved.", "unreachable_a": "Elisa could not reach that. Elisa is small. We've been over this.", "unreachable_b": "Too far, Elisa. Walk first. Then touch.", "hall_dark": "Elisa stepped into the dark hallway without a light. Bold. Foolish, but bold.", "hall_lamp": "Flashlight in hand, Elisa stepped into the hallway. And the story could finally begin.", "death1": "Ouch. That did not seem pleasant.", "death2": "Well. Elisa did not think things through.", "death_end": "And that, I'm afraid, was the end of Elisa. For tonight.", "death_wardrobe": "Never open a wardrobe that opens itself. Elementary.", "death_bed": "Looking under the bed. In the dark. A classic, at least.", "death_dark": "The dark hallway. Without a light. Elisa was brave. Briefly.", "death_paralysis": "Elisa did not move. The night moved for her."};
-const narrBuf={},narrSeen=new Set();let narrSrc=null,narrUntil=0;
+const narrBuf={},narrSeen=new Set(),narrLog=[];let narrCur=null,wakeAt=0;let narrSrc=null,narrUntil=0;
 function narrLoad(id){if(narrBuf[id]||!AC)return narrBuf[id];narrBuf[id]=fetch("sons/narr/"+id+".mp3").then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(b=>AC.decodeAudioData(b)).catch(()=>null);return narrBuf[id]}
 const narrQ=[];const pick=a=>a[Math.random()*a.length|0];
 function narrAny(ids,o){return narr(pick(ids),o)}
@@ -404,9 +404,9 @@ function narr(id,o){o=o||{};if(o.once&&narrSeen.has(id))return false;const t=NAR
   narrSeen.add(id);narrPlay(id,o);return true}
 function narrThen(id,fn,at){return narr(id,{onEnd:fn,at})}
 function narrNext(){narrBusy=false;const nx=narrQ.shift();if(nx)setTimeout(()=>narrPlay(nx.id,nx.o),300);else musicLevel(1,1.2)}
-function narrPlay(id,o){o=o||{};const t=NARR[id],tok=++narrTok;narrBusy=true;
+function narrPlay(id,o){o=o||{};const t=NARR[id],tok=++narrTok;narrBusy=true;narrCur={id,start:performance.now()};narrLog.push({id,t:performance.now()});if(narrLog.length>60)narrLog.shift();
   narrUntil=performance.now()+t.length*65+800;
-  const done=()=>{if(tok!==narrTok)return;o.onEnd&&o.onEnd();narrNext()};
+  const done=()=>{if(tok!==narrTok)return;narrCur=null;o.onEnd&&o.onEnd();narrNext()};
   const run=dur=>{think(t,dur*1000+600);(o.at||[]).forEach(([sec,fn])=>later(()=>{if(tok===narrTok)fn()},sec*1000))};
   const p=narrLoad(id),fallback=()=>{const d=Math.max(2.4,t.length*.06);run(d);later(done,d*1000)};
   if(!p||!AC){fallback();return}
@@ -415,7 +415,7 @@ function narrPlay(id,o){o=o||{};const t=NARR[id],tok=++narrTok;narrBusy=true;
     if(narrSrc){try{narrSrc.stop()}catch(e){}}narrSrc=src;src.start();run(buf.duration);
     narrUntil=performance.now()+buf.duration*1000+300;musicLevel(.45,.3);
     src.onended=()=>{if(narrSrc===src)narrSrc=null;done()}})}
-function narrReset(){narrQ.length=0;narrTok++;narrBusy=false;narrUntil=0;if(narrSrc){try{narrSrc.stop()}catch(e){}narrSrc=null}}
+function narrReset(){narrCur=null;narrQ.length=0;narrTok++;narrBusy=false;narrUntil=0;if(narrSrc){try{narrSrc.stop()}catch(e){}narrSrc=null}}
 function think(t,ms){const el=$("thought");typeText(el,t);el.classList.add("on");clearTimeout(thoughtTimer);thoughtTimer=setTimeout(()=>el.classList.remove("on"),(ms||3200)+t.length*30)}
 const chip=$("chip");
 function showChip(text,pos,act){chip.textContent=text;chip.classList.add("on");chip.classList.toggle("act",!!act);chip._pos=pos}
@@ -809,7 +809,7 @@ function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$
   const wk=++wakeTok,line=first?"wake1":S.died?"wake2d":pick(["wake2a","wake2b","wake2c"]);S.died=false;S.saidGetup=false;
   // le cri s'éteint dans le noir, le narrateur parle, puis la chambre apparaît sur une inspiration
   later(()=>narrThen(line,()=>{if(wk===wakeTok)later(reveal,250)}),t1+2300);
-  function reveal(){if(wk!==wakeTok)return;gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
+  function reveal(){if(wk!==wakeTok)return;wakeAt=performance.now();gasp();caPulse(.9);S.mode="wake";wakeIris=true;C.style.setProperty("--r","4%");C.style.setProperty("--soft","9%");C.style.opacity=1;
     $("dark").style.transition="none";$("dark").style.opacity=0;droneLevel(.55,2);
     later(()=>anim(3800,k=>{const e=k*k*(3-2*k);C.style.setProperty("--r",(4+86*e)+"%");C.style.setProperty("--soft",(9+30*e)+"%")},
       ()=>{wakeIris=false;C.style.opacity=0;C.style.setProperty("--soft","18%");C.style.setProperty("--cx","50%");C.style.setProperty("--cy","55%")}),300);
@@ -1055,7 +1055,7 @@ canvas.addEventListener("pointerdown",e=>{setPtr(e);if(paused)return;
 chip.addEventListener("click",()=>{if(S.mode==="wake"&&!paused)stretch()});
 /* tourner sur place : flèches gauche/droite, Q/D, ou les boutons à l’écran */
 const keys=new Set();
-addEventListener("keydown",e=>{
+addEventListener("keydown",e=>{if(e.target&&e.target.closest&&e.target.closest("#dev"))return;
   if(e.key==="Escape"||e.key==="p"||e.key==="P"){
     if(popOpen()){closePop();return}
     if(!$("s-drawing").hidden){closeDrawing();return}
@@ -1109,7 +1109,186 @@ function loop(now){if(S.mode==="play"&&S.saidBed&&!paused&&!popOpen()){if(walkin
   caTick(Math.min(.1,(now-(caTick.t||now))/1000));caTick.t=now;updCursor();placeIris();placeChip();grain(now);postMat.uniforms.time.value=now/1000;
   if(!paused||!loop.drawnPaused){renderFrame();loop.drawnPaused=paused}
   requestAnimationFrame(loop)}
+/* ---------- crochets pour l'outil développeur ---------- */
+const devUrls={};let devPaused=false,devAudio=null;
+window.__GNE={NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
+  devPause(on){devPaused=on;paused=on;if(on){hideChip();follow=null;keys.clear()}if(AC){try{on?AC.suspend():AC.resume()}catch(e){}}},
+  shot(){try{renderFrame();const w=640,h=Math.round(canvas.height*w/canvas.width),c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(canvas,0,0,w,h);return c.toDataURL("image/jpeg",.72)}catch(e){return null}},
+  devPlay(id){if(devAudio){devAudio.pause();devAudio=null}devAudio=new Audio(devUrls[id]||("sons/narr/"+id+".mp3"));devAudio.play().catch(()=>{})},
+  async useUrl(id,url){try{const r=await fetch(url);if(!r.ok)throw 0;const ab=await r.arrayBuffer();devUrls[id]=URL.createObjectURL(new Blob([ab],{type:"audio/mpeg"}));
+      const ctx=AC||new OfflineAudioContext(1,1,44100);const buf=await ctx.decodeAudioData(ab.slice(0));narrBuf[id]=Promise.resolve(buf);return buf.duration}
+    catch(e){devUrls[id]=url;return 0}}};
 requestAnimationFrame(loop);
+})();
+</script>
+<style>
+/* ---------- outil développeur (touche ² / ` ou F2) ---------- */
+#dev-btn{position:fixed;left:10px;bottom:10px;z-index:40;font:600 10px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.08em;color:#ff4a4a;background:#0b0b0d;border:1px solid #3a1515;border-radius:4px;padding:6px 8px;opacity:.55;cursor:pointer}
+#dev-btn:hover{opacity:1}
+#dev{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);z-index:41;display:flex;flex-direction:column;background:#0d0d10f2;color:#ddd;border-left:1px solid #2a2a30;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;box-shadow:-12px 0 40px #000a;cursor:auto}
+#dev[hidden]{display:none}
+#dev *{box-sizing:border-box;cursor:auto}
+#dev button,#dev summary{cursor:pointer;font:inherit}
+#dev header{display:flex;gap:6px;align-items:center;padding:10px 10px 8px;border-bottom:1px solid #222}
+#dev header b{color:#ff4a4a;letter-spacing:.1em;margin-right:auto}
+#dev .tab{background:none;border:1px solid #333;color:#aaa;border-radius:4px;padding:4px 9px}
+#dev .tab.on{background:#ff3030;border-color:#ff3030;color:#000}
+#dev .x{background:none;border:0;color:#888;font-size:16px;padding:0 4px}
+#dev .pausebar{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #222;background:#141418}
+#dev .pausebar button{flex:none;background:#1e1e24;border:1px solid #444;color:#eee;border-radius:4px;padding:6px 10px}
+#dev .pausebar button.on{background:#ffcf33;color:#000;border-color:#ffcf33}
+#dev .pausebar span{color:#888;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dev .now{padding:8px 10px;border-bottom:1px solid #222;min-height:44px}
+#dev .now .bar{height:3px;background:#2a2a30;margin-top:5px;border-radius:2px;overflow:hidden}
+#dev .now .bar i{display:block;height:100%;width:0;background:#ff3030}
+#dev .log{color:#777;font-size:11px;margin-top:4px;max-height:52px;overflow:auto}
+#dev .body{flex:1;overflow:auto;padding:8px 10px 40px}
+#dev .tools{display:flex;gap:6px;margin-bottom:8px}
+#dev input,#dev textarea{width:100%;background:#16161a;color:#eee;border:1px solid #2f2f36;border-radius:4px;padding:5px 6px;font:inherit;cursor:text}
+#dev textarea{resize:vertical;min-height:38px}
+#dev .row{border:1px solid #24242a;border-radius:6px;padding:7px;margin-bottom:7px;background:#121215}
+#dev .row.playing{border-color:#ff3030;box-shadow:0 0 0 1px #ff3030 inset}
+#dev .row .hd{display:flex;gap:6px;align-items:center;margin-bottom:5px}
+#dev .row .hd code{color:#fff;font-weight:700;margin-right:auto;word-break:break-all}
+#dev .bd{font-size:10px;padding:1px 5px;border-radius:3px;background:#26262c;color:#aaa}
+#dev .bd.miss{background:#5a1010;color:#ffb3b3}
+#dev .bd.edit{background:#4a3a00;color:#ffd866}
+#dev .bd.gen{background:#0f3d24;color:#7dffb0}
+#dev .bd.int{background:#123048;color:#8fd1ff}
+#dev .acts{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+#dev .acts button{background:#1e1e24;border:1px solid #3a3a42;color:#ddd;border-radius:4px;padding:3px 8px}
+#dev .acts button.go{border-color:#ff3030;color:#ff8080}
+#dev .acts button:disabled{opacity:.4;cursor:progress}
+#dev .msg{font-size:11px;color:#9a9;margin-top:4px;min-height:0}
+#dev .msg.err{color:#ff8080}
+#dev .note{border-left:3px solid #ffcf33;padding:6px 8px;margin-bottom:8px;background:#141418;border-radius:0 6px 6px 0}
+#dev .note.done{border-color:#3a8;opacity:.6}
+#dev .note img{width:100%;border-radius:4px;margin-top:5px;display:block}
+#dev .ctx{color:#777;font-size:10.5px;margin-top:3px}
+#dev .warn{color:#ffcf33;font-size:11px;padding:6px 0}
+#dev .compose{border:1px solid #ffcf33;border-radius:6px;padding:8px;margin-bottom:10px;background:#19170d}
+#dev .compose img{width:100%;border-radius:4px;margin-bottom:6px;display:block}
+#dev h4{margin:10px 0 6px;color:#aaa;font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+</style>
+<button id="dev-btn" type="button" hidden>DEV</button>
+<aside id="dev" hidden aria-label="Developer tools">
+  <header><b>DEV</b><button class="tab on" data-tab="voices" type="button">Voices</button><button class="tab" data-tab="notes" type="button">Notes</button><button class="x" id="dev-x" type="button" aria-label="Close">✕</button></header>
+  <div class="pausebar"><button id="dev-pause" type="button">❚❚ Dev pause</button><span id="dev-state"></span></div>
+  <div class="now" id="dev-now"><span style="color:#666">No line playing.</span></div>
+  <div class="body" id="dev-voices"></div>
+  <div class="body" id="dev-notes" hidden></div>
+</aside>
+<script>
+(()=>{
+const G=window.__GNE;if(!G)return;
+const $d=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const PROJECT="61b52f19-4eab-4460-9f16-a3c318b7ac10",SUNRA="Sunra";
+const panel=$d("dev"),btn=$d("dev-btn");
+let db=null,mcp=null,assets=null,voices={},notes=[],tab="voices",dur={},miss={},busy={},msgs={},filter="",composing=null;
+const ORIG=Object.assign({},G.NARR);
+
+/* ---------- ouverture ---------- */
+function open(on){panel.hidden=!on;if(on){loadDurations();render()}}
+btn.onclick=()=>open(panel.hidden);$d("dev-x").onclick=()=>open(false);
+addEventListener("keydown",e=>{if(e.code==="Backquote"||e.key==="F2"){if(e.target.closest&&e.target.closest("#dev input,#dev textarea"))return;e.preventDefault();open(panel.hidden)}},true);
+if(/[#?&]dev/.test(location.href))btn.hidden=false;
+panel.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;panel.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));$d("dev-voices").hidden=tab!=="voices";$d("dev-notes").hidden=tab!=="notes";render()});
+
+/* ---------- pause dev : fige le jeu et le son, sans écran de pause ---------- */
+$d("dev-pause").onclick=()=>{const on=!G.devPaused;G.devPause(on);if(on){startNote()}render()};
+function ctxNow(){const S=G.S,p=G.elisa.position,c=G.narrCur;return{mode:S.mode,gameTime:+G.gt.toFixed(1),sinceWake:G.wakeAt?+((performance.now()-G.wakeAt)/1000).toFixed(1):null,
+  line:c?c.id:null,lineAt:c?+((performance.now()-c.start)/1000).toFixed(1):null,recent:G.narrLog.slice(-5).map(l=>l.id),
+  elisa:[+p.x.toFixed(2),+(-p.z).toFixed(2)],flags:{gotLamp:S.gotLamp,hasLamp:S.hasLamp,cells:S.cells,eyes:S.eyes,monsters:S.monsters,saidBed:!!S.saidBed,died:!!S.died}}}
+function ctxText(c){return `${c.mode} · t=${c.gameTime}s${c.sinceWake!=null?" · wake+"+c.sinceWake+"s":""}${c.line?" · voice: "+c.line+" @"+c.lineAt+"s":""} · Elisa (${c.elisa}) · eyes:${c.flags.eyes}${c.flags.gotLamp?" · lamp":""}${c.flags.cells?" · cells:"+c.flags.cells:""}`}
+function startNote(){composing={ctx:ctxNow(),shot:G.shot(),text:""};tab="notes";panel.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.tab==="notes"));$d("dev-voices").hidden=true;$d("dev-notes").hidden=false;open(true);setTimeout(()=>{const t=$d("dev-note-text");t&&t.focus()},50)}
+
+/* ---------- « en cours » ---------- */
+function tickNow(){const c=G.narrCur,el=$d("dev-now");$d("dev-pause").classList.toggle("on",!!G.devPaused);$d("dev-pause").textContent=G.devPaused?"▶ Resume":"❚❚ Dev pause";
+  $d("dev-state").textContent=`${G.S.mode} · t=${G.gt.toFixed(1)}s${G.devPaused?" · PAUSED":""}`;
+  if(!panel.hidden){const log=G.narrLog.slice(-6).reverse().map(l=>{const d=(l.t-(G.wakeAt||l.t))/1000;return `${d>=0?"+":""}${d.toFixed(1)}s ${l.id}`}).join(" · ");
+    if(c){const d=dur[c.id]||0,k=d?Math.min(1,(performance.now()-c.start)/1000/d):0;
+      el.innerHTML=`<code style="color:#ff6a6a">${esc(c.id)}</code> <span style="color:#777">${((performance.now()-c.start)/1000).toFixed(1)}/${d?d.toFixed(1):"?"}s</span><br>${esc(G.NARR[c.id])}<div class="bar"><i style="width:${k*100}%"></i></div><div class="log">${esc(log)}</div>`}
+    else el.innerHTML=`<span style="color:#666">No line playing.</span><div class="log">${esc(log)}</div>`;
+    document.querySelectorAll("#dev .row").forEach(r=>r.classList.toggle("playing",!!c&&r.dataset.id===c.id))}
+  requestAnimationFrame(tickNow)}
+requestAnimationFrame(tickNow);
+
+/* ---------- durées / fichiers manquants ---------- */
+function loadDurations(){Object.keys(G.NARR).forEach(id=>{if(id in dur||id in miss)return;const p=G.narrLoad(id);if(!p){return}
+  p.then(b=>{if(b)dur[id]=b.duration;else miss[id]=true;if(tab==="voices"&&!panel.hidden)renderVoicesSoft()})})}
+let softT=0;function renderVoicesSoft(){clearTimeout(softT);softT=setTimeout(()=>{if(!document.activeElement||!document.activeElement.closest("#dev"))render()},120)}
+
+/* ---------- rendu ---------- */
+function render(){if(tab==="voices")renderVoices();else renderNotes()}
+function status(id){const v=voices[id];if(v&&v.status==="integrated")return["int","integrated"];if(v&&v.url)return["gen","generated"];if(v&&v.text&&v.text!==ORIG[id])return["edit","edited"];if(v&&v.isNew)return["miss","new"];return null}
+function renderVoices(){const box=$d("dev-voices");const ids=[...new Set([...Object.keys(G.NARR),...Object.keys(voices)])].filter(id=>!filter||id.includes(filter)||(G.NARR[id]||"").toLowerCase().includes(filter));
+  const noGen=!mcp?`<div class="warn">Generation needs the Sunra connector in this view (claude.ai artifact). Text edits ${db?"are saved":"stay local"}.</div>`:"";
+  box.innerHTML=`${noGen}<div class="tools"><input id="dev-filter" placeholder="Filter lines…" value="${esc(filter)}"><button class="tab" id="dev-new" type="button">+ New line</button></div>
+  <div id="dev-newbox"></div>`+ids.map(id=>{const st=status(id),v=voices[id]||{},d=dur[id],t=G.NARR[id]??v.text??"";
+    return `<div class="row" data-id="${esc(id)}"><div class="hd"><code>${esc(id)}</code>${miss[id]&&!v.url?'<span class="bd miss">missing audio</span>':""}${d?`<span class="bd">${d.toFixed(1)}s</span>`:""}${st?`<span class="bd ${st[0]}">${st[1]}</span>`:""}</div>
+      <textarea data-k="text" rows="2">${esc(t)}</textarea>
+      <input data-k="note" placeholder="Note for Claude (where / when it should play, timing…)" value="${esc(v.note||"")}" style="margin-top:5px">
+      <div class="acts"><button data-a="play" type="button">▶ Play</button><button data-a="save" type="button">Save text</button><button class="go" data-a="gen" type="button" ${busy[id]||!mcp?"disabled":""}>${busy[id]?"Generating…":"⟳ Generate voice"}</button>${v.text&&ORIG[id]!=null&&v.text!==ORIG[id]?'<button data-a="revert" type="button">Revert</button>':""}</div>
+      <div class="msg ${msgs[id]&&msgs[id].err?"err":""}">${esc(msgs[id]?msgs[id].t:"")}</div></div>`}).join("");
+  const f=$d("dev-filter");f.oninput=()=>{filter=f.value.toLowerCase();renderVoices();const g=$d("dev-filter");g.focus();g.setSelectionRange(g.value.length,g.value.length)};
+  $d("dev-new").onclick=()=>{$d("dev-newbox").innerHTML=`<div class="row"><input id="dev-nid" placeholder="id (e.g. door_locked)"><textarea id="dev-ntext" rows="2" placeholder="Line text" style="margin-top:5px"></textarea><input id="dev-nnote" placeholder="When should it play?" style="margin-top:5px"><div class="acts"><button class="go" id="dev-nadd" type="button">Add line</button></div></div>`;
+    $d("dev-nadd").onclick=async()=>{const id=$d("dev-nid").value.trim().replace(/[^\w-]/g,"_"),text=$d("dev-ntext").value.trim();if(!id||!text)return;
+      G.NARR[id]=text;voices[id]=Object.assign({},voices[id],{text,note:$d("dev-nnote").value.trim(),isNew:true,status:"new"});await saveVoice(id);render()}};
+  box.querySelectorAll(".row[data-id]").forEach(r=>{const id=r.dataset.id;r.querySelectorAll("button[data-a]").forEach(b=>b.onclick=()=>act(id,b.dataset.a,r))})}
+function setMsg(id,t,err){msgs[id]={t,err};const r=document.querySelector(`#dev .row[data-id="${CSS.escape(id)}"] .msg`);if(r){r.textContent=t;r.classList.toggle("err",!!err)}}
+async function act(id,a,r){const text=r.querySelector('[data-k="text"]').value.trim(),note=r.querySelector('[data-k="note"]').value.trim();
+  if(a==="play"){G.devPlay(id);return}
+  if(a==="revert"){G.NARR[id]=ORIG[id];voices[id]=Object.assign({},voices[id],{text:ORIG[id],note,status:"reverted"});await saveVoice(id);render();return}
+  if(a==="save"){G.NARR[id]=text;voices[id]=Object.assign({},voices[id],{text,note,status:voices[id]&&voices[id].url?"generated":"edited"});await saveVoice(id);setMsg(id,db?"Saved. Subtitle updated; regenerate the voice to match.":"Saved locally (this view only).");render();return}
+  if(a==="gen"){G.NARR[id]=text;voices[id]=Object.assign({},voices[id],{text,note});await generate(id,text)}}
+
+/* ---------- génération (Sunra → ElevenLabs, voix George) ---------- */
+function errText(e){const c=e&&e.code;return c==="server_not_connected"?"Add the Sunra connector in claude.ai Settings → Connectors.":c==="needs_reauth"?"Reconnect Sunra in claude.ai Settings → Connectors.":c==="not_in_manifest"||c==="approval_required"?"Sunra isn't allowed for this page — allow it in the artifact's permissions.":c==="tool_error"?"Sunra refused: "+String(e.message||"").slice(0,160):"Sunra didn't answer ("+(c||"error")+"). The voice may still have been created — check before retrying."}
+async function generate(id,text){if(!mcp||busy[id])return;busy[id]=true;render();setMsg(id,"Sending to Sunra…");
+  try{const r=await mcp.callTool(SUNRA,"create_audio",{project_id:PROJECT,model:"elevenlabs-tts",voice:"George",prompt:text,auto_confirm:true});
+    const node=(r.payload&&r.payload.node_ids||[])[0];if(!node)throw{code:"tool_error",message:"no node id"};
+    let url=null;for(let i=0;i<6&&!url;i++){setMsg(id,"Generating… ("+(i+1)+")");
+      const w=await mcp.callTool(SUNRA,"wait_for_nodes",{project_id:PROJECT,node_ids:[node],timeout_s:45});const n=(w.payload&&w.payload.nodes||[])[0]||{};
+      if(n.status==="failed")throw{code:"tool_error",message:n.error_reason||"generation failed"};url=n.out_audio||(n.urls||[])[0]||null}
+    if(!url)throw{code:"server_unavailable"};
+    voices[id]=Object.assign({},voices[id],{text,url,node,status:"generated",genAt:Date.now()});await saveVoice(id);
+    const ok=await G.useUrl(id,url);delete miss[id];if(ok)dur[id]=ok;
+    setMsg(id,ok?`New voice ready (${ok.toFixed(1)}s) — playing it now in-game. Claude integrates it on request.`:"Voice generated and saved, but this view can't load it for playback. Claude integrates it on request.");if(ok)G.devPlay(id)}
+  catch(e){setMsg(id,errText(e),true)}
+  busy[id]=false;render()}
+
+/* ---------- notes ---------- */
+function renderNotes(){const box=$d("dev-notes");
+  let h=!db?'<div class="warn">Notes are saved only inside the claude.ai artifact (signed in).</div>':"";
+  if(composing)h+=`<div class="compose">${composing.shot?`<img src="${composing.shot}" alt="Frame at the pause">`:""}<div class="ctx">${esc(ctxText(composing.ctx))}</div>
+    <textarea id="dev-note-text" rows="4" placeholder="What should change here?" style="margin-top:6px">${esc(composing.text)}</textarea>
+    <div class="acts"><button class="go" id="dev-note-save" type="button" ${db?"":"disabled"}>Save note</button><button id="dev-note-cancel" type="button">Cancel</button></div><div class="msg" id="dev-note-msg"></div></div>`;
+  else h+=`<div class="acts" style="margin-bottom:8px"><button class="go" id="dev-note-new" type="button">+ Note at this moment</button></div>`;
+  h+=`<h4>${notes.length} note${notes.length===1?"":"s"}</h4>`+notes.map(n=>`<div class="note ${n.status==="resolved"?"done":""}"><div>${esc(n.text)}</div><div class="ctx">${esc(n.ctx?ctxText(n.ctx):"")}${n.status==="resolved"?" · resolved":""}${n.reply?"<br>↳ "+esc(n.reply):""}</div>${n.shotUrl?`<img src="${esc(n.shotUrl)}" alt="" loading="lazy">`:""}
+    <div class="acts">${n.status==="resolved"?"":`<button data-n="${esc(n.id)}" data-a="resolve" type="button">Mark resolved</button>`}<button data-n="${esc(n.id)}" data-a="del" type="button">Delete</button></div></div>`).join("");
+  box.innerHTML=h;
+  const t=$d("dev-note-text");if(t)t.oninput=()=>composing.text=t.value;
+  const nn=$d("dev-note-new");if(nn)nn.onclick=()=>{G.devPause(true);startNote();render()};
+  const c=$d("dev-note-cancel");if(c)c.onclick=()=>{composing=null;render()};
+  const sv=$d("dev-note-save");if(sv)sv.onclick=saveNote;
+  box.querySelectorAll("button[data-n]").forEach(b=>b.onclick=async()=>{const id=b.dataset.n;try{if(b.dataset.a==="del")await db.collection("notes").doc(id).delete();else await db.collection("notes").doc(id).update({status:"resolved"})}catch(e){}})}
+async function saveNote(){if(!db||!composing||!composing.text.trim())return;const m=$d("dev-note-msg"),sv=$d("dev-note-save");sv.disabled=true;m.textContent="Saving…";
+  try{let shotId=null,shotUrl=null;if(assets&&composing.shot){try{const blob=await (await fetch(composing.shot)).blob();const a=await assets.upload(blob);shotId=a.id;shotUrl=a.url}catch(e){}}
+    await db.collection("notes").add({text:composing.text.trim(),ctx:composing.ctx,shotId,shotUrl,status:"open",createdAt:Date.now()});composing=null;render()}
+  catch(e){m.textContent="Couldn't save ("+(e&&e.code||"error")+").";m.classList.add("err");sv.disabled=false}}
+
+/* ---------- stockage ---------- */
+async function saveVoice(id){const v=voices[id];if(!db){try{localStorage.setItem("gne-dev-"+id,JSON.stringify(v))}catch(e){}return}
+  try{await db.collection("voices").doc(id).set(Object.assign({},v,{updatedAt:Date.now()}))}catch(e){setMsg(id,"Couldn't save ("+(e&&e.code||"error")+").",true)}}
+function applyVoice(id,v){if(!v||v.status==="integrated")return;if(v.text&&v.status!=="reverted")G.NARR[id]=v.text;if(v.url&&!G.devUrls[id])G.useUrl(id,v.url).then(d=>{if(d){dur[id]=d;delete miss[id]}})}
+
+(async()=>{if(!window.claude||!window.claude.use){return}
+  const [d,m,a]=await Promise.all([claude.use("db"),claude.use("mcp"),claude.use("assets")]);db=d;mcp=m;assets=a;
+  if(db||mcp)btn.hidden=false;
+  if(db){const timer=setTimeout(()=>{},10000);
+    db.collection("voices").onSnapshot(s=>{clearTimeout(timer);voices={};s.docs.forEach(x=>{voices[x.id]=Object.assign({},x.data());applyVoice(x.id,voices[x.id])});renderVoicesSoft()},()=>{});
+    db.collection("notes").orderBy("createdAt","desc").onSnapshot(s=>{notes=s.docs.map(x=>Object.assign({id:x.id},x.data()));if(tab==="notes"&&!panel.hidden&&!composing)render()},()=>{})}
+  if(!panel.hidden)render()})();
 })();
 </script>
 
