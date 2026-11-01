@@ -828,8 +828,9 @@ function stretch(){if(S.mode!=="wake")return;S.stretched=true;S.mode="busy";hide
   // 3) les yeux sous le lit n'attendent plus que le joueur s'éloigne du lit (voir loop)
   const wk=wakeTok;S.bedArmed=false;S.bedSpot=null;
   const goWait=()=>{if(wk!==wakeTok)return;narrThen("wait",()=>{
-      narrThen("wardrobe",()=>{whisper2();S.monsters=true;S.bedArmed=true;
-        later(()=>{if(!S.saidBed)narr("eyes_wardrobe",{ifFree:true})},600)})},
+      // 1) yeux dans l'armoire + la voix (les deux répliques, d'un trait) ; ensuite seulement le lit peut se réveiller
+      narrThen("wardrobe",()=>{whisper2();S.monsters=true;
+        later(()=>narrThen("eyes_wardrobe",()=>{S.bedArmed=true;S.attn=0}),400)})},
       [[2.45,()=>{creak();placardDoor(-50,1800);later(()=>setEyes("placard"),1000)}]])};
   if(S.saidGetup)later(goWait,900);else{S.saidGetup=true;narrThen("getup",()=>later(goWait,500))}
   sitUp(()=>anim(800,k=>{elisa.scale.set(1,1+.08*Math.sin(k*Math.PI),1)},()=>later(()=>getDown(()=>{S.bedSpot=[elisa.position.x,elisa.position.z];S.mode="play"}),450)))}
@@ -1088,7 +1089,12 @@ function loop(now){if(S.mode==="play"&&S.saidBed&&!paused&&!popOpen()){if(walkin
     if(S.monsters&&S.mode==="play"){const a=lookAt(V(0.3,3.9,1.0)),b=lookAt(V(2.2,1.2,0.1));let w=S.eyes;
       if(!S.saidBed){
         // dès qu'Elisa s'éloigne du lit : les yeux dessous, et la phrase (passe devant les remarques en attente)
-        if(S.bedArmed&&S.bedSpot&&Math.hypot(elisa.position.x-S.bedSpot[0],elisa.position.z-S.bedSpot[1])>.6){
+        // 2) dès que le joueur prête attention à l'armoire (curseur/regard tourné vers elle ~0,35 s) ou s'éloigne un peu du lit
+        let att=false;if(lookPt){const ex=elisa.position.x,ez=elisa.position.z,wp=V(0.3,3.9,0);
+          let da=Math.atan2(lookPt.x-ex,lookPt.z-ez)-Math.atan2(wp.x-ex,wp.z-ez);da=Math.atan2(Math.sin(da),Math.cos(da));att=Math.abs(da)<.45}
+        S.attn=att?(S.attn||0)+dt:0;
+        const away=S.bedSpot&&Math.hypot(elisa.position.x-S.bedSpot[0],elisa.position.z-S.bedSpot[1])>.4;
+        if(S.bedArmed&&(away||S.attn>.35||a>.8)){
           S.saidBed=true;w="bed";for(let i=narrQ.length-1;i>=0;i--)if(narrQ[i].id!=="eyes_bed")narrQ.splice(i,1);narr("eyes_bed")}}
       else if(a>.55&&a>=b)w="bed";else if(b>.55&&b>a)w="placard";
       if(w!==S.eyes)setEyes(w)}
