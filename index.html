@@ -103,6 +103,11 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
 #scare{position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;display:grid;place-items:center;background:#000}
 #scare img{width:100%;height:100%;object-fit:cover;transform:scale(1.5);filter:brightness(1.8)}
 #scare.on{opacity:1}
+#scarev{position:absolute;inset:0;z-index:8;background:#000;opacity:0;pointer-events:none;display:grid;place-items:center;transition:opacity .45s ease}
+#scarev.on{opacity:1}
+#scarev video{width:100%;height:100%;object-fit:contain;display:block}
+#scarev::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,transparent 45%,rgba(0,0,0,.85) 100%)}
+#scarev.hit video{animation:shake .45s steps(9) 1}
 #scare.on img{animation:jump .6s cubic-bezier(.15,.9,.25,1) forwards,shake .45s steps(9) 1}
 @keyframes jump{0%{transform:scale(1);filter:brightness(2.2)}20%{filter:brightness(1)}100%{transform:scale(1.35);filter:brightness(.9)}}
 @keyframes shake{0%,100%{translate:0 0}20%{translate:-14px 8px}40%{translate:12px -10px}60%{translate:-8px -6px}80%{translate:6px 9px}}
@@ -177,6 +182,7 @@ canvas#grain{position:absolute;inset:0;width:100%;height:100%;pointer-events:non
     <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/><feOffset in="b" id="caB" dx="0" dy="0" result="b2"/>
     <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/></filter></svg>
   <div id="scare" aria-hidden="true"><img id="scare-img" alt=""></div>
+  <div id="scarev" aria-hidden="true"><video id="scare-vid" src="monstre_armoire.mp4" muted playsinline preload="auto"></video></div>
 
   <section class="screen gate" id="s-title"><img class="bg" src="titre_eteint.webp" alt=""><img class="bg lit" id="title-lit" src="titre_allume.webp" alt=""><canvas class="bg" id="title-gl" hidden></canvas><div class="iris" id="iris" aria-hidden="true"></div><canvas id="eyelid" aria-hidden="true"></canvas>
     <button class="wake enter" id="b-enter" type="button"><svg viewBox="0 0 220 96" aria-hidden="true">
@@ -721,7 +727,19 @@ function inspect(id,h){heart(66,0);musicLevel(.4,.8);
       later(()=>{torchOn();stopHeart();musicLevel(1,1.5);const fg=$("pop-fig");fg.classList.add("flash","taken");$("pop").dataset.lock="";
         narr(pl?"coats":"toys");later(()=>setPopBody(pl?"Just coats. And Daddy’s hat.":"Just my toys. The drum, the marbles, my old train.",[]),350)},1800)},300)})}
 /* sans la lampe : le monstre apparaît dans le pop-up, fixe l’enfant, puis se jette sur elle */
-function scarePop(id){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=id==="placard";musicLevel(.25,.4);later(()=>heartTo(170,1300),1600);
+/* armoire : la vidéo de Romain (apparition dans l'armoire, puis le monstre qui bondit) remplace l'image et le screamer */
+const SCARE_HIT=2.22; // seconde de la vidéo où le monstre jaillit
+function scareVideo(id){const v=$("scare-vid"),box=$("scarev");let hit=false,done=false;
+  const finish=()=>{if(done)return;done=true;stopHeart();box.style.transition="none";box.classList.remove("on","hit");v.pause();ending(id);requestAnimationFrame(()=>box.style.transition="")};
+  try{v.currentTime=0}catch(e){}
+  const p=v.play();if(p&&p.catch)p.catch(()=>{if(!hit&&!done){done=true;box.classList.remove("on");scarePop(id,true)}});
+  box.classList.add("on");later(()=>heartTo(170,1300),700);
+  const watch=()=>{if(done)return;if(paused){if(!v.paused)v.pause()}else if(v.paused&&!v.ended)v.play().catch(()=>{});
+    if(!hit&&v.currentTime>=SCARE_HIT){hit=true;caPulse(1.6);if(!(AC&&sfx("sursaut_armoire")))stinger();box.classList.add("hit");$("popbg").style.transition="";$("popbg").classList.remove("on")}
+    if(v.ended||v.currentTime>=v.duration-.05)return later(finish,150);setTimeout(watch,25)};
+  setTimeout(watch,25)}
+function scarePop(id,noVideo){caHold=.15;S.mode="busy";hideChip();follow=null;const pl=id==="placard";
+  if(pl&&!noVideo){musicLevel(.25,.4);return scareVideo(id)}musicLevel(.25,.4);later(()=>heartTo(170,1300),1600);
   showPop(pl?"The wardrobe":"Under the bed","",null,null,
     pl?{src:"armoire_monstre.webp",fade:true,fadeS:2.1,delay:200,eyes:"44.5% 26%",alt:"In the half-open wardrobe, a hooded figure with glowing white eyes."}
       :{src:"lit_monstre.webp",fade:true,fadeS:2.1,delay:200,eyes:"41% 28.5%",alt:"Under the bed, a black creature with glowing white eyes reaches its long arms into the room."},true);
@@ -796,7 +814,7 @@ let wakeIris=false;const _ip=new THREE.Vector3();
 function placeIris(){if(!wakeIris)return;_ip.copy(elisa.position);_ip.y+=.15;_ip.project(cam);const C=$("closing");
   C.style.setProperty("--cx",((_ip.x+1)/2*100)+"%");C.style.setProperty("--cy",((1-_ip.y)/2*100)+"%")}
 let wakeTok=0;
-function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;S.doorOpen=false;S.doorTried=false;S.bedArmed=false;S.bedSpot=null;S.stretched=false;underShadow.visible=true;
+function prologue(first){narrReset();$("gamelid").hidden=true;caHold=0;glMax=1;$("popbg").classList.remove("on");wakeIris=false;if(typeof crawl!=="undefined")crawl.mesh.visible=false;musicLevel(1,2);$("pop").classList.remove("on","lunge");$("pop").dataset.lock="";popOnClose=null;$("s-drawing").hidden=true;S.mode="busy";hideChip();clearTimers();stopHeart();follow=null;pending=null;S.monsters=false;S.saidBed=false;{const b=$("scarev");b.classList.remove("on","hit");$("scare-vid").pause()}S.doorOpen=false;S.doorTried=false;S.bedArmed=false;S.bedSpot=null;S.stretched=false;underShadow.visible=true;
   if(camBase){cam.position.copy(camBase);cam.zoom=1;cam.updateProjectionMatrix()}
   setLying();setEyes("none");S.stretched=false;S.hasLamp=false;S.gotLamp=false;S.cells=0;S.cellShelf=false;S.cellChest=false;S.path=null;S.onArrive=null;
   if(nodes.INT_Lampe_torche)nodes.INT_Lampe_torche.visible=true;torch.intensity=0;$("inv").classList.remove("on");$("inv").textContent="Flashlight";
@@ -1112,7 +1130,7 @@ function loop(now){if(S.mode==="play"&&S.saidBed&&!paused&&!popOpen()){if(walkin
   requestAnimationFrame(loop)}
 /* ---------- crochets pour l'outil développeur ---------- */
 const devUrls={};let devPaused=false,devAudio=null;
-window.__GNE={NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
+window.__GNE={scarePop,NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
   devPause(on){devPaused=on;paused=on;if(on){hideChip();follow=null;keys.clear()}if(AC){try{on?AC.suspend():AC.resume()}catch(e){}}},
   shot(){try{renderFrame();const w=640,h=Math.round(canvas.height*w/canvas.width),c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(canvas,0,0,w,h);return c.toDataURL("image/jpeg",.72)}catch(e){return null}},
   devPlay(id){if(devAudio){devAudio.pause();devAudio=null}devAudio=new Audio(devUrls[id]||("sons/narr/"+id+".mp3?v="+NARR_V));devAudio.play().catch(()=>{})},
