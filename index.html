@@ -583,7 +583,7 @@ function blinkEyes(g,dt){const u=g.userData;
     d.glow.material.opacity=ease*(.35+.3*bl);d.glow.scale.set(1,.35+.65*lidY,1)});
 }
 const eyesPlacard=eyes(V(0.53,3.627,1.29),.11,.75);
-const eyesBed=eyes(V(2.56,1.68,0.175),.17,1.05,qBedPlane);
+const eyesBed=eyes(V(2.56,1.0,0.175),.17,1.05,qBedPlane); // près de la table de nuit
 /* ombre profonde sous le lit : un volume noir mat qui fait ressortir les yeux (retiré quand on éclaire de près) */
 const underShadow=new THREE.Mesh(new THREE.BoxGeometry(.86,.22,1.75),new THREE.MeshBasicMaterial({color:0x000000}));
 underShadow.position.copy(V(2.0,1.2,0.115));scene.add(underShadow);
@@ -1130,7 +1130,7 @@ function loop(now){if(S.mode==="play"&&S.saidBed&&!paused&&!popOpen()){if(walkin
   requestAnimationFrame(loop)}
 /* ---------- crochets pour l'outil développeur ---------- */
 const devUrls={};let devPaused=false,devAudio=null;
-window.__GNE={scarePop,NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
+window.__GNE={setEyes,scarePop,NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
   devPause(on){devPaused=on;paused=on;if(on){hideChip();follow=null;keys.clear()}if(AC){try{on?AC.suspend():AC.resume()}catch(e){}}},
   shot(){try{renderFrame();const w=640,h=Math.round(canvas.height*w/canvas.width),c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(canvas,0,0,w,h);return c.toDataURL("image/jpeg",.72)}catch(e){return null}},
   devPlay(id){if(devAudio){devAudio.pause();devAudio=null}devAudio=new Audio(devUrls[id]||("sons/narr/"+id+".mp3?v="+NARR_V));devAudio.play().catch(()=>{})},
