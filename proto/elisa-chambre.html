@@ -727,12 +727,18 @@ function drawLidCanvas(cv,k){const W=Math.max(1,Math.round(innerWidth/2)),H=Math
 function eyeLid(to,ms,done){const cv=$("gamelid"),from=to<.5?LID_WIDE:0;cv.hidden=false;if(REDUCE)ms=Math.min(ms,150);
   anim(ms,k=>drawLidCanvas(cv,from+(to-from)*(to<.5?k*k*(3-2*k):1-Math.pow(1-k,3))),()=>{drawLidCanvas(cv,to);if(to>=LID_WIDE)cv.hidden=true;done&&done()})}
 const eyeClose=(ms,done)=>eyeLid(0,ms,done),eyeOpen=(ms,done)=>{$("popbg").style.transition="none";$("popbg").classList.remove("on");eyeLid(LID_WIDE,ms,done)};
-function inspect(id,h,said){heart(66,0);musicLevel(.4,.8);
+function inspect(id,h){heart(66,0);musicLevel(.4,.8);
   S.mode="busy";S.path=null;walking=false;faceTo(h.userData.center);aimPt.copy(h.userData.center);
-  // 2 · Click, sans lampe : le narrateur raconte le geste (« Monsters are not real… » / « The courageous little girl… »),
-  // puis l'œil se ferme et le monstre surgit. La scène va finir : on coupe ce qui parlait encore.
-  if(!S.hasLamp&&!said){if(narrCur&&catOf(narrCur.id)!=="end")narrStop();narrQ.length=0;
-    return narrThen(id==="placard"?"wardrobe_no":"bed_no",()=>later(()=>inspect(id,h,true),150))}
+  // 2 · Click, sans lampe : la voix (« Monsters are not real… » / « The courageous little girl… ») et le passage en vue subjective
+  // démarrent ensemble ; le départ du monstre est calé pour que le screamer tombe juste après la fin de la phrase.
+  // La scène va finir : on coupe ce qui parlait encore.
+  if(!S.hasLamp){const pl=id==="placard",line=pl?"wardrobe_no":"bed_no",HIT=pl?SCARE_HIT*1000:3000;
+    if(narrCur&&catOf(narrCur.id)!=="end")narrStop();narrQ.length=0;narr(line);
+    const p=narrLoad(line)||Promise.resolve(null);let dur=4300,closed=false,go=null;
+    const fire=()=>{if(!closed||go===null)return;later(()=>scarePop(id),Math.max(0,go-900))};
+    p.then(b=>{if(b)dur=b.duration*1000;go=dur+150-HIT;fire()});
+    eyeClose(900,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");closed=true;fire()});
+    return}
   // l'œil se ferme tout de suite (à la place du zoom)
   eyeClose(900,()=>{const bg=$("popbg");bg.style.transition="none";bg.classList.add("on");
     if(!S.hasLamp)return scarePop(id);
@@ -1158,7 +1164,7 @@ function loop(now){if(S.mode==="play"&&S.saidBed&&!paused&&!popOpen()){if(walkin
   requestAnimationFrame(loop)}
 /* ---------- crochets pour l'outil développeur ---------- */
 const devUrls={};let devPaused=false,devAudio=null;
-window.__GNE={NARR_CAT,NARR_PROPOSED,PRIO,setEyes,scarePop,NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
+window.__GNE={inspect,hot,NARR_CAT,NARR_PROPOSED,PRIO,setEyes,scarePop,NARR,narrLoad,S,elisa,narrLog,devUrls,get narrCur(){return narrCur},get gt(){return gt},get wakeAt(){return wakeAt},get devPaused(){return devPaused},
   devPause(on){devPaused=on;paused=on;if(on){hideChip();follow=null;keys.clear()}if(AC){try{on?AC.suspend():AC.resume()}catch(e){}}},
   shot(){try{renderFrame();const w=640,h=Math.round(canvas.height*w/canvas.width),c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(canvas,0,0,w,h);return c.toDataURL("image/jpeg",.72)}catch(e){return null}},
   devPlay(id){if(devAudio){devAudio.pause();devAudio=null}devAudio=new Audio(devUrls[id]||("sons/narr/"+id+".mp3?v="+NARR_V));devAudio.play().catch(()=>{})},
