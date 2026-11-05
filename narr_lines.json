@@ -31,7 +31,7 @@
 "unreachable_b": "Too far, Elisa. Walk first. Then touch.",
 "wardrobe": "The wardrobe door opened. By itself. Naturally.",
 "gaze_placard": "Something in the wardrobe was looking at Elisa. Not to look back would be wise.",
-"eyes_bed": "Then, under the bed. Two eyes. Patient ones.",
+"eyes_bed": "Under the bed. Two eyes. Patient ones.",
 "scan_a": "In the cold, she looked around her room, searching for something useful.",
 "scan_b": "Looking is free. Walking, apparently, costs extra.",
 "scan_c": "Elisa's eyes wandered. Her feet did not.",
@@ -60,7 +60,9 @@
 "death2": "Well. Elisa did not think things through.",
 "death_end": "That, I'm afraid, was the end of Elisa. For now.",
 "death_wardrobe": "Never open a wardrobe that opens itself. Elementary.",
-"death_bed": "Looking under the bed. In the dark. A classic, at least.",
+"death_bed": "Well, looking under the bed. In the dark. A classic, at least.",
 "death_dark": "The dark hallway. Without a light. Elisa was brave. Briefly.",
-"death_paralysis": "Elisa choked on her own fear."
+"death_paralysis": "Elisa choked on her own fear.",
+"bed_no": "\"Monsters are not real,\" she said... How foolish...",
+"wardrobe_no": "The courageous little girl decided to confront her fear, but..."
 }
